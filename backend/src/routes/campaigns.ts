@@ -51,19 +51,16 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const { name, description, channel, targetAudience } = req.body;
+    const { name, type, channel, messageTemplate, scheduledAt } = req.body;
 
     const campaign = await prisma.campaign.create({
       data: {
         name,
-        description,
+        type: type || 'BROADCAST',
         channel,
         status: 'DRAFT',
-        targetAudience: targetAudience || 0,
-        sentCount: 0,
-        deliveredCount: 0,
-        readCount: 0,
-        responseCount: 0,
+        messageTemplate: messageTemplate || '',
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
         createdById: userId,
       },
     });
