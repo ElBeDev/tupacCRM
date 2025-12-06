@@ -1,7 +1,9 @@
 -- AlterEnum: Add WEBSITE to Source enum if not exists
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'WEBSITE' AND enumtypid = 'public."Source"'::regtype) THEN
-        ALTER TYPE "public"."Source" ADD VALUE 'WEBSITE';
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'Source') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'WEBSITE' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'Source')) THEN
+            ALTER TYPE "Source" ADD VALUE 'WEBSITE';
+        END IF;
     END IF;
 END $$;
 
