@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  password            String?
+  name                String
+  role                Role           @default(AGENT)
+  avatar              String?
+  googleId            String?        @unique
+  googleAccessToken   String?        @db.Text
+  googleRefreshToken  String?        @db.Text
+  googleTokenExpiry   DateTime?
+  isActive            Boolean        @default(true)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  
+  // Relations
+  contacts      Contact[]      @relation("AssignedContacts")
+  conversations Conversation[] @relation("AssignedConversations")
+  messages      Message[]      @relation("AgentMessages")
+  campaigns     Campaign[]     @relation("CampaignCreator")
+  
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  AGENT
+}
+
+// Contact (Lead/Customer) Model
+model Contact {
+  id            String         @id @default(uuid())
+  name          String
+  email         String?
+  phone         String?        @unique
+  source        Source         @default(MANUAL)
+  status        ContactStatus  @default(NEW)
+  score         Int            @default(0)
+  tags          String[]
+  customFields  Json?
+  assignedToId  String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  // Relations
+  assignedTo    User?          @relation("AssignedContacts", fields: [assignedToId], references: [id])
+  conversations Conversation[]
+  orders        Order[]
+  
+  @@map("contacts")
+}
+
+enum Source {
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  WEBSITE
+  MANUAL
+  IMPORT
+}
+
+enum ContactStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+// Conversation Model
+model Conversation {
+  id            String             @id @default(uuid())
+  contactId     String
+  channel       Channel
+  status        ConversationStatus @default(OPEN)
+  assignedToId  String?
+  lastMessageAt DateTime           @default(now())
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  // Relations
+  contact       Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignedTo    User?              @relation("AssignedConversations", fields: [assignedToId], references: [id])
+  messages      Message[]
+  orders        Order[]
+  
+  @@map("conversations")
+}
+
+enum Channel {
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  EMAIL
+  WEB
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+// Message Model
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String?
+  senderType     SenderType
+  content        String       @db.Text
+  messageType    MessageType  @default(TEXT)
+  metadata       Json?
+  isRead         Boolean      @default(false)
+  sentAt         DateTime     @default(now())
+  
+  // Relations
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User?        @relation("AgentMessages", fields: [senderId], references: [id])
+  
+  @@map("messages")
+}
+
+enum SenderType {
+  CONTACT
+  AGENT
+  AI
+  SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  LOCATION
+  CONTACT_CARD
+}
+
+// Campaign Model
+model Campaign {
+  id              String         @id @default(uuid())
+  name            String
+  type            CampaignType
+  channel         Channel
+  status          CampaignStatus @default(DRAFT)
+  targetSegment   Json?
+  messageTemplate String         @db.Text
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  createdById     String
+  metrics         Json?          @default("{\"sent\": 0, \"delivered\": 0, \"read\": 0, \"replied\": 0}")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  createdBy       User           @relation("CampaignCreator", fields: [createdById], references: [id])
+  
+  @@map("campaigns")
+}
+
+enum CampaignType {
+  BROADCAST
+  AUTOMATED
+  DRIP
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+// WhatsApp Session Model
+model WhatsAppSession {
+  id          String    @id @default(uuid())
+  sessionName String    @unique
+  phoneNumber String?
+  isActive    Boolean   @default(false)
+  qrCode      String?   @db.Text
+  lastSeen    DateTime?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("whatsapp_sessions")
+}
+
+// AI Configuration Model
+model AIConfig {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  systemPrompt      String   @db.Text
+  model             String   @default("gpt-4-turbo-preview")
+  temperature       Float    @default(0.7)
+  maxTokens         Int      @default(1000)
+  isActive          Boolean  @default(true)
+  autoReply         Boolean  @default(false)
+  businessHours     Json?
+  fallbackMessage   String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("ai_configs")
+}
+
+// Order Model (Pedidos de mayorista)
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  contactId       String
+  conversationId  String?
+  status          OrderStatus @default(PENDING)
+  notes           String?     @db.Text
+  totalAmount     Float       @default(0)
+  pickupDate      DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  contact         Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation    Conversation? @relation(fields: [conversationId], references: [id])
+  items           OrderItem[]
+  
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING       // Pendiente de confirmación
+  CONFIRMED     // Confirmado
+  PREPARING     // En preparación
+  READY         // Listo para recoger
+  COMPLETED     // Entregado/Completado
+  CANCELLED     // Cancelado
+}
+
+// Order Item Model (Items del pedido)
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  productName String
+  quantity    Int      @default(1)
+  unitPrice   Float    @default(0)
+  subtotal    Float    @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@map("order_items")
+}
