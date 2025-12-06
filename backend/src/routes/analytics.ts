@@ -75,9 +75,9 @@ router.get('/dashboard', authenticate, async (req: Request, res: Response) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const messageStats = await prisma.message.groupBy({
-      by: ['sender_type'],
+      by: ['senderType'],
       where: {
-        sent_at: {
+        sentAt: {
           gte: thirtyDaysAgo,
         },
       },

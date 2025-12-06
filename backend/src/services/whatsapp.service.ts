@@ -267,7 +267,7 @@ class WhatsAppService {
             messageType: 'TEXT',
             metadata: {
               waMessageId: message.key.id,
-              timestamp: message.messageTimestamp,
+              timestamp: typeof message.messageTimestamp === 'number' ? message.messageTimestamp : Number(message.messageTimestamp),
             },
           },
         });

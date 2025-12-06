@@ -58,7 +58,7 @@ router.post('/', authenticate, async (req, res) => {
         name,
         description,
         channel,
-        status: 'draft',
+        status: 'DRAFT',
         targetAudience: targetAudience || 0,
         sentCount: 0,
         deliveredCount: 0,

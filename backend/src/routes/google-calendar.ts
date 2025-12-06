@@ -59,17 +59,17 @@ router.post('/events', setGoogleCredentials, async (req: Request, res: Response)
 
     // Si se proporciona contactId, asociar el evento al contacto
     if (contactId) {
+      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+      const existingFields = (contact?.customFields as any) || {};
+      const existingEvents = existingFields.calendarEvents || [];
+      
       await prisma.contact.update({
         where: { id: contactId },
         data: {
           customFields: {
-            ...(await prisma.contact.findUnique({ where: { id: contactId } }))
-              ?.customFields,
+            ...existingFields,
             calendarEvents: [
-              ...((
-                (await prisma.contact.findUnique({ where: { id: contactId } }))
-                  ?.customFields as any
-              )?.calendarEvents || []),
+              ...existingEvents,
               {
                 eventId: event.id,
                 summary: event.summary,
