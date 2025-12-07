@@ -1,9 +1,12 @@
 import OpenAI from 'openai';
 import prisma from '../lib/prisma';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Hacer OpenAI opcional - solo inicializar si existe la API key
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  : null;
 
 export interface AIAnalysisResult {
   sentiment: 'positive' | 'neutral' | 'negative';
@@ -20,6 +23,10 @@ export class AIService {
    * Analiza un mensaje o conversación usando OpenAI
    */
   async analyzeConversation(messages: string[], contactInfo?: any): Promise<AIAnalysisResult> {
+    if (!openai) {
+      throw new Error('OpenAI API key not configured');
+    }
+    
     try {
       const config = await this.getActiveConfig();
       
@@ -83,6 +90,10 @@ Responde en formato JSON con la siguiente estructura:
     contactInfo?: any,
     customPrompt?: string
   ): Promise<string> {
+    if (!openai) {
+      return 'Lo siento, el servicio de IA no está disponible en este momento.';
+    }
+    
     try {
       const config = await this.getActiveConfig();
       
@@ -128,6 +139,10 @@ La respuesta debe ser:
     reasons: string[];
     nextSteps: string[];
   }> {
+    if (!openai) {
+      throw new Error('OpenAI API key not configured');
+    }
+    
     try {
       const config = await this.getActiveConfig();
       
@@ -187,6 +202,10 @@ Criterios de evaluación:
    * Analiza el sentimiento de un mensaje
    */
   async analyzeSentiment(message: string): Promise<'positive' | 'neutral' | 'negative'> {
+    if (!openai) {
+      return 'neutral';
+    }
+    
     try {
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
@@ -241,6 +260,10 @@ Criterios de evaluación:
    * Genera un resumen de múltiples conversaciones
    */
   async summarizeConversations(conversations: any[]): Promise<string> {
+    if (!openai) {
+      return 'Resumen no disponible: servicio de IA no configurado.';
+    }
+    
     try {
       const config = await this.getActiveConfig();
       
