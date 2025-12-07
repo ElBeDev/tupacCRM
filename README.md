@@ -2,6 +2,7 @@
 
 ![TupacCRM Banner](https://img.shields.io/badge/TupacCRM-v1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Deploy](https://img.shields.io/badge/deploy-production-success)
 
 **TupacCRM** es un CRM completo basado en IA, open-source y auto-hospedado, diseñado para gestionar conversaciones multicanal, automatizar ventas y pre-calificar leads con inteligencia artificial.
 
