@@ -21,19 +21,71 @@ dotenv.config();
 
 const app: Application = express();
 const httpServer = createServer(app);
+
+// Configuración dinámica de CORS
+const getAllowedOrigins = () => {
+  const origins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean) as string[];
+
+  // Agregar dominios adicionales desde CORS_ORIGIN
+  if (process.env.CORS_ORIGIN) {
+    const corsOrigins = process.env.CORS_ORIGIN.split(',').map(o => o.trim());
+    origins.push(...corsOrigins);
+  }
+
+  return origins;
+};
+
+const allowedOrigins = getAllowedOrigins();
+
+// Función para validar origen (soporta wildcards)
+const isOriginAllowed = (origin: string | undefined): boolean => {
+  if (!origin) return true;
+  
+  return allowedOrigins.some(allowed => {
+    if (allowed.includes('*')) {
+      const pattern = allowed
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '.*');
+      return new RegExp(`^${pattern}$`).test(origin);
+    }
+    return allowed === origin;
+  });
+};
+
 const io = new Server(httpServer, {
   cors: {
-    origin: ['https://tupac-crm.vercel.app', 'http://localhost:3000'],
-    methods: ['GET', 'POST'],
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️  CORS blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
   },
 });
 
-// Middleware
+// Middleware CORS para Express
 app.use(cors({
-  origin: ['https://tupac-crm.vercel.app', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️  CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -62,7 +114,6 @@ app.use('/api/google/calendar', googleCalendarRoutes);
 app.use('/api/google/sheets', googleSheetsRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/analytics', statsRoutes);
-app.use('/api/analytics', statsRoutes);
 app.use('/api/ai', aiRoutes);
 
 // Socket.IO connection
@@ -78,11 +129,6 @@ io.on('connection', (socket) => {
 const whatsappService = new WhatsAppService(io);
 initializeWhatsApp(whatsappService);
 
-// Auto-connect WhatsApp on startup (optional - puede comentarse)
-// setTimeout(() => {
-//   whatsappService.initialize();
-// }, 3000);
-
 const PORT = process.env.PORT || 3001;
 
 httpServer.listen(PORT, () => {
@@ -90,6 +136,7 @@ httpServer.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
   console.log(`🔌 WebSocket server ready`);
   console.log(`📱 WhatsApp service initialized`);
+  console.log(`🌐 Allowed CORS origins:`, allowedOrigins);
 });
 
 export { app, io };

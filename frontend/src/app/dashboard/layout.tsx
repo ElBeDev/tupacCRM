@@ -3,8 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Header from '@/components/dashboard/Header';
+import NavbarCollapsable from '@/components/dashboard/NavbarCollapsable';
+import { Box } from '@chakra-ui/react';
 
 export default function DashboardLayout({
   children,
@@ -25,14 +25,11 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
-      </div>
-    </div>
+    <Box display="flex" minH="100vh" bg="#FEFEFE">
+      <NavbarCollapsable />
+      <Box flex={1} ml={{ base: 0, md: '224px' }}>
+        {children}
+      </Box>
+    </Box>
   );
 }

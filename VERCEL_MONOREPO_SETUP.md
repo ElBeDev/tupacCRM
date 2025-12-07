@@ -1,94 +1,136 @@
-# Configuración de Despliegue en Vercel (Monorepo)
+# 🚀 Configuración de Despliegue: Backend (Render) + Frontend (Vercel)
 
 ## 📋 Resumen
 
-Este proyecto está configurado para desplegarse como un monorepo completo en Vercel, incluyendo tanto el frontend (Next.js) como el backend (Node.js/Express).
+**Arquitectura de Despliegue:**
+- **Backend (Node.js + Express + PostgreSQL)**: Render ✅
+- **Frontend (Next.js + Chakra UI)**: Vercel ✅
 
-## 🚀 Pasos para Desplegar
+Esta es la configuración recomendada porque:
+- ✅ Render maneja servicios con estado (WhatsApp, WebSocket) mejor que serverless
+- ✅ Vercel es óptimo para Next.js con Edge Functions
+- ✅ Separación clara de responsabilidades
+- ✅ Escalabilidad independiente
 
-### 1. Configurar el Proyecto en Vercel
+---
 
-1. Ve a [Vercel Dashboard](https://vercel.com/dashboard)
-2. Haz clic en "Add New..." → "Project"
-3. Importa tu repositorio de GitHub: `ElBeDev/tupacCRM`
-4. **NO cambies el Framework Preset** (debe detectar Next.js automáticamente)
+## 🎯 Paso 1: Backend en Render (Ya Configurado)
 
-### 2. Configurar Variables de Entorno
+### Servicios en Render:
 
-En la sección "Environment Variables" de tu proyecto en Vercel, agrega las siguientes variables:
+1. **Web Service: tupaccrm-backend**
+   - Build Command: `cd backend && npm install && npx prisma generate && npm run build`
+   - Start Command: `cd backend && npm start`
+   - Environment: Node
+   - Region: Oregon (US-West) o Virginia (US-East)
 
-#### Variables de Base de Datos
-```
-DATABASE_URL=postgresql://user:password@host:port/database
-REDIS_URL=redis://default:password@host:port
-```
+2. **PostgreSQL Database**
+   - Plan: Free o Starter ($7/mes)
+   - Versión: 15+
 
-#### Variables de Autenticación
-```
-JWT_SECRET=tu_jwt_secret_super_seguro_aqui
-JWT_REFRESH_SECRET=tu_refresh_secret_super_seguro_aqui
-SESSION_SECRET=tu_session_secret_super_seguro_aqui
-```
+### Variables de Entorno en Render:
 
-#### Variables de Google OAuth
-```
-GOOGLE_CLIENT_ID=tu_google_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=tu_google_client_secret
-```
+```env
+# Database
+DATABASE_URL=postgresql://... (auto-generada por Render)
+REDIS_URL=redis://... (si usas Redis)
 
-#### Variables de OpenAI
-```
-OPENAI_API_KEY=sk-tu_openai_api_key_aqui
-```
+# Auth
+JWT_SECRET=tu_jwt_secret_super_seguro_min_32_chars
+JWT_REFRESH_SECRET=tu_refresh_secret_super_seguro_min_32_chars
+SESSION_SECRET=tu_session_secret_super_seguro_min_32_chars
 
-#### Variables de Frontend
-```
-NEXT_PUBLIC_API_URL=https://tu-proyecto.vercel.app
-NEXT_PUBLIC_WS_URL=wss://tu-proyecto.vercel.app
-```
+# Google OAuth
+GOOGLE_CLIENT_ID=tu-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=tu-google-client-secret
+GOOGLE_REDIRECT_URI=https://tu-backend.onrender.com/api/google/callback
 
-### 3. Configurar Build Settings
+# OpenAI
+OPENAI_API_KEY=sk-proj-tu-api-key-aqui
+AI_MODEL=gpt-4-turbo-preview
 
-En la configuración del proyecto:
-- **Framework Preset**: Next.js
-- **Build Command**: `cd frontend && npm install && npm run build && cd ../backend && npm install && npm run vercel-build`
-- **Output Directory**: `frontend/.next`
-- **Install Command**: Dejar por defecto o vacío
+# Environment
+NODE_ENV=production
+PORT=3001
 
-### 4. Desplegar
-
-1. Haz clic en "Deploy"
-2. Espera a que el build se complete (puede tomar 2-5 minutos)
-3. Una vez completado, tu aplicación estará disponible en la URL proporcionada
-
-## 🔧 Estructura de Rutas
-
-La configuración en `vercel.json` maneja las rutas de la siguiente manera:
-
-- `/api/*` → Backend API (Express/Node.js)
-- `/health` → Health check del backend
-- `/*` → Frontend (Next.js)
-
-## 📝 Notas Importantes
-
-### Database Migrations
-
-El backend ejecuta automáticamente las migraciones de Prisma durante el despliegue:
-```bash
-prisma generate && prisma migrate deploy
+# ⚠️ IMPORTANTE: CORS para Vercel
+FRONTEND_URL=https://tupaccrm.vercel.app
+CORS_ORIGIN=https://tupaccrm.vercel.app,https://*.vercel.app
 ```
 
-### WebSockets
+### Verificar CORS en el Backend:
 
-⚠️ **Limitación**: Vercel Functions no soportan WebSockets persistentes. Si tu aplicación necesita WebSockets (para WhatsApp en tiempo real), considera:
+Asegúrate de que `backend/src/index.ts` incluya:
 
-1. **Opción A**: Usar Vercel para el frontend y Railway/Render para el backend
-2. **Opción B**: Implementar polling en lugar de WebSockets
-3. **Opción C**: Usar un servicio de WebSocket externo (Pusher, Ably)
+```typescript
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: Function) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.FRONTEND_URL,
+      /^https:\/\/.*\.vercel\.app$/  // Permite todos los subdominios de Vercel
+    ].filter(Boolean);
 
-### WhatsApp Sessions
+    if (!origin || allowedOrigins.some(allowed => {
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    })) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
 
-Las sesiones de WhatsApp se perderán en cada despliegue porque Vercel Functions son stateless. Considera:
+app.use(cors(corsOptions));
+```
+
+---
+
+## 🎨 Paso 2: Frontend en Vercel
+
+### Método 1: Deploy desde Vercel Dashboard (Recomendado)
+
+#### 2.1 Preparar Archivos de Configuración
+
+Ya está todo listo en el proyecto. Solo necesitas desplegar.
+
+#### 2.2 Deploy en Vercel
+
+1. **Ir a [vercel.com/new](https://vercel.com/new)**
+
+2. **Import Repository** y selecciona `tupacCRM`
+
+3. **Configure Project:**
+   ```
+   Framework: Next.js
+   Root Directory: frontend
+   Build Command: npm run build
+   Output Directory: .next
+   Install Command: npm install
+   ```
+
+4. **Environment Variables** (agregar 2):
+   ```
+   NEXT_PUBLIC_API_URL = https://tupaccrm-backend.onrender.com
+   NEXT_PUBLIC_WS_URL = wss://tupaccrm-backend.onrender.com
+   ```
+
+5. **Deploy** y espera 2-3 minutos
+
+---
+
+## ✅ Verificación y Troubleshooting
+
+Ver la guía completa de solución de problemas arriba en la sección "Paso 3".
+
+---
+
+**¡Listo! Tu app está desplegada en producción! 🎉**
 - Usar almacenamiento externo (S3, DigitalOcean Spaces)
 - Implementar reconexión automática
 - Usar un servicio dedicado para WhatsApp
