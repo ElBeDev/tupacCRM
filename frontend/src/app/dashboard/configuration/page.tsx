@@ -10,8 +10,19 @@ import {
   Badge,
   Divider,
   Skeleton,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure,
+  Image,
+  Spinner,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import api from '@/lib/api';
+import { io, Socket } from 'socket.io-client';
 
 // WhatsApp SVG Icon
 const WhatsAppIcon = () => (
@@ -31,6 +42,91 @@ const InstagramIcon = () => (
 export default function ConfigurationPage() {
   const [activeTab, setActiveTab] = useState('connections');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // WhatsApp State
+  const [whatsappConnected, setWhatsappConnected] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  useEffect(() => {
+    checkWhatsAppStatus();
+    
+    // Initialize Socket.IO
+    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
+    const newSocket = io(WS_URL);
+    
+    newSocket.on('connect', () => {
+      console.log('Socket connected');
+    });
+
+    newSocket.on('whatsapp:qr', (data: { qr: string }) => {
+      console.log('QR received');
+      setQrCode(data.qr);
+      setWhatsappLoading(false);
+    });
+
+    newSocket.on('whatsapp:connected', (data: { phoneNumber: string }) => {
+      console.log('WhatsApp connected!');
+      setWhatsappConnected(true);
+      setQrCode(null);
+      setPhoneNumber(data.phoneNumber);
+      setWhatsappLoading(false);
+      onClose();
+    });
+
+    newSocket.on('whatsapp:disconnected', () => {
+      console.log('WhatsApp disconnected');
+      setWhatsappConnected(false);
+      setQrCode(null);
+      setPhoneNumber(null);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  const checkWhatsAppStatus = async () => {
+    try {
+      const response = await api.get('/api/whatsapp/status');
+      setWhatsappConnected(response.data.connected);
+      if (response.data.phoneNumber) {
+        setPhoneNumber(response.data.phoneNumber);
+      }
+    } catch (error) {
+      console.error('Error checking WhatsApp status:', error);
+    }
+  };
+
+  const handleWhatsAppConnect = async () => {
+    setWhatsappLoading(true);
+    setQrCode(null);
+    onOpen();
+    try {
+      await api.post('/api/whatsapp/connect');
+      // El QR se recibirá vía Socket.IO
+    } catch (error) {
+      console.error('Error connecting WhatsApp:', error);
+      setWhatsappLoading(false);
+      onClose();
+    }
+  };
+
+  const handleWhatsAppDisconnect = async () => {
+    try {
+      await api.post('/api/whatsapp/disconnect');
+      setWhatsappConnected(false);
+      setQrCode(null);
+      setPhoneNumber(null);
+    } catch (error) {
+      console.error('Error disconnecting WhatsApp:', error);
+    }
+  };
 
   return (
     <Box bg="#FEFEFE" minH="100vh" pl={{ base: 0, md: '224px' }} pt={4}>
@@ -95,15 +191,15 @@ export default function ConfigurationPage() {
                     </Text>
                   </HStack>
                   <Badge
-                    bg="gray.100"
-                    color="gray.600"
+                    bg={whatsappConnected ? "green.100" : "gray.100"}
+                    color={whatsappConnected ? "green.600" : "gray.600"}
                     px={3}
                     py={1}
                     borderRadius="full"
                     fontSize="12px"
                     fontWeight="500"
                   >
-                    No conectado
+                    {whatsappConnected ? "Conectado" : "No conectado"}
                   </Badge>
                 </HStack>
 
@@ -111,26 +207,138 @@ export default function ConfigurationPage() {
 
                 {/* Content */}
                 <VStack align="stretch" spacing={3} py={2}>
-                  <Text fontSize="14px" color="gray.600">
-                    Conecta para ver información
-                  </Text>
+                  {whatsappConnected && phoneNumber ? (
+                    <>
+                      <HStack justify="space-between">
+                        <Text fontSize="13px" color="gray.600">
+                          Número:
+                        </Text>
+                        <Text fontSize="13px" fontWeight="600" color="gray.800">
+                          {phoneNumber}
+                        </Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text fontSize="13px" color="gray.600">
+                          Estado:
+                        </Text>
+                        <HStack spacing={2}>
+                          <Box w="2" h="2" borderRadius="full" bg="green.500" />
+                          <Text fontSize="13px" fontWeight="600" color="green.600">
+                            Activo
+                          </Text>
+                        </HStack>
+                      </HStack>
+                    </>
+                  ) : (
+                    <Text fontSize="14px" color="gray.600">
+                      Conecta tu WhatsApp para recibir y enviar mensajes automáticamente
+                    </Text>
+                  )}
                 </VStack>
 
                 {/* Button */}
-                <Button
-                  bg="#9D39FE"
-                  color="white"
-                  size="md"
-                  borderRadius="md"
-                  _hover={{ bg: '#8B2DE8' }}
-                  _active={{ bg: '#7A24D6' }}
-                  fontSize="14px"
-                  fontWeight="600"
-                >
-                  Conectar
-                </Button>
+                {whatsappConnected ? (
+                  <Button
+                    variant="outline"
+                    borderColor="red.500"
+                    color="red.500"
+                    size="md"
+                    borderRadius="md"
+                    _hover={{ bg: 'red.50' }}
+                    fontSize="14px"
+                    fontWeight="600"
+                    onClick={handleWhatsAppDisconnect}
+                  >
+                    Desconectar
+                  </Button>
+                ) : (
+                  <Button
+                    bg="#9D39FE"
+                    color="white"
+                    size="md"
+                    borderRadius="md"
+                    _hover={{ bg: '#8B2DE8' }}
+                    _active={{ bg: '#7A24D6' }}
+                    fontSize="14px"
+                    fontWeight="600"
+                    onClick={handleWhatsAppConnect}
+                    isLoading={whatsappLoading}
+                  >
+                    Conectar
+                  </Button>
+                )}
               </VStack>
             </Box>
+
+            {/* WhatsApp QR Modal */}
+            <Modal isOpen={isOpen} onClose={onClose} size="lg" isCentered>
+              <ModalOverlay bg="blackAlpha.600" backdropFilter="blur(10px)" />
+              <ModalContent borderRadius="xl">
+                <ModalHeader>
+                  <Text fontSize="20px" fontWeight="700" color="gray.800">
+                    Conectar WhatsApp
+                  </Text>
+                </ModalHeader>
+                <ModalCloseButton />
+                <ModalBody pb={6}>
+                  <VStack spacing={6} align="center">
+                    {/* QR Code Area */}
+                    <Box
+                      w="280px"
+                      h="280px"
+                      bg="gray.50"
+                      borderRadius="xl"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      border="2px solid"
+                      borderColor="gray.200"
+                    >
+                      {whatsappLoading && !qrCode ? (
+                        <VStack spacing={3}>
+                          <Spinner size="xl" color="#9D39FE" thickness="4px" />
+                          <Text fontSize="14px" color="gray.600">
+                            Generando código QR...
+                          </Text>
+                        </VStack>
+                      ) : qrCode ? (
+                        <Image
+                          src={qrCode}
+                          alt="WhatsApp QR Code"
+                          w="260px"
+                          h="260px"
+                        />
+                      ) : (
+                        <Text fontSize="14px" color="gray.500">
+                          Esperando código QR...
+                        </Text>
+                      )}
+                    </Box>
+
+                    {/* Instructions */}
+                    <VStack align="stretch" spacing={3} w="full">
+                      <Text fontSize="16px" fontWeight="600" color="gray.800" textAlign="center">
+                        Escanea el código QR
+                      </Text>
+                      <VStack align="flex-start" spacing={2} pl={4}>
+                        <Text fontSize="14px" color="gray.600">
+                          1. Abre WhatsApp en tu teléfono
+                        </Text>
+                        <Text fontSize="14px" color="gray.600">
+                          2. Toca Menú o Configuración
+                        </Text>
+                        <Text fontSize="14px" color="gray.600">
+                          3. Toca Dispositivos vinculados
+                        </Text>
+                        <Text fontSize="14px" color="gray.600">
+                          4. Apunta tu teléfono a esta pantalla para escanear el código
+                        </Text>
+                      </VStack>
+                    </VStack>
+                  </VStack>
+                </ModalBody>
+              </ModalContent>
+            </Modal>
 
             {/* Instagram Card */}
             <Box

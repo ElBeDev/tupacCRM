@@ -130,23 +130,6 @@ export default function NavbarCollapsable() {
         </Button>
       </Flex>
 
-      {/* Badge de Plan (solo cuando está expandido) */}
-      {isExpanded && (
-        <Box px={4} py={3} borderBottom="1px" borderColor="gray.200">
-          <Button
-            w="full"
-            size="sm"
-            variant="ghost"
-            justifyContent="flex-start"
-            leftIcon={<Icon as={Crown} color="brand.500" />}
-            color="gray.700"
-            fontWeight="medium"
-          >
-            Mejorar el plan
-          </Button>
-        </Box>
-      )}
-
       {/* Links principales */}
       <VStack spacing={1} px={3} py={4} align="stretch" flex={1} overflowY="auto">
         {mainLinks.map((link) => (
