@@ -223,6 +223,44 @@ model AIConfig {
   @@map("ai_configs")
 }
 
+// Assistant Model (OpenAI Assistants)
+model Assistant {
+  id              String    @id @default(uuid())
+  userId          String
+  name            String
+  description     String?   @db.Text
+  instructions    String    @db.Text
+  model           String    @default("gpt-4-turbo-preview")
+  temperature     Float     @default(0.7)
+  openaiId        String?   @unique // ID del asistente en OpenAI
+  tools           Json?     // Herramientas habilitadas (code_interpreter, retrieval, function)
+  fileIds         String[]  // IDs de archivos asociados
+  metadata        Json?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  testMessages    AssistantTestMessage[]
+  
+  @@map("assistants")
+}
+
+// Assistant Test Message Model (Mensajes de prueba)
+model AssistantTestMessage {
+  id          String    @id @default(uuid())
+  assistantId String
+  role        String    // "user" o "assistant"
+  content     String    @db.Text
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  
+  // Relations
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  
+  @@map("assistant_test_messages")
+}
+
 // Order Model (Pedidos de mayorista)
 model Order {
   id              String      @id @default(uuid())

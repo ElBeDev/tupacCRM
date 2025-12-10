@@ -47,12 +47,13 @@ El proyecto corre con 4 contenedores:
 4. **Frontend** - Next.js (puerto 3000)
 ## 🌐 URLs de Acceso
 
-- **Frontend**: http://srv1190739.hstgr.cloud
-- **Backend API**: http://srv1190739.hstgr.cloud/api
-- **WebSocket**: ws://srv1190739.hstgr.cloud
-- **Nginx**: Proxy inverso en el puerto 80
+- **Frontend**: https://srv1190739.hstgr.cloud ✅ SSL/HTTPS activo
+- **Backend API**: https://srv1190739.hstgr.cloud/api
+- **WebSocket**: wss://srv1190739.hstgr.cloud
+- **Nginx**: Proxy inverso con SSL en los puertos 80/443
 
-> **Nota**: También se puede acceder mediante IP: http://72.62.11.2441
+> **Nota**: HTTP (puerto 80) redirige automáticamente a HTTPS (puerto 443)
+> También se puede acceder mediante IP: http://72.62.11.2441
 - **Nginx**: Proxy inverso en el puerto 80
 
 ## 🔧 Scripts de Utilidad
@@ -177,7 +178,6 @@ docker-compose exec postgres psql -U tupaccrm -d tupaccrm
 ./vps-utils.sh restore-db backup_20251210_123456.sql
 ```
 
-## 🔐 Variables de Entorno
 ```env
 # Database
 DATABASE_URL="postgresql://tupaccrm:TupacCrm2025Secure!@postgres:5432/tupaccrm?schema=public"
@@ -186,8 +186,8 @@ DATABASE_URL="postgresql://tupaccrm:TupacCrm2025Secure!@postgres:5432/tupaccrm?s
 JWT_SECRET="tupaccrm_super_secret_key_2025_change_in_production"
 
 # CORS
-FRONTEND_URL="http://srv1190739.hstgr.cloud"
-CORS_ORIGIN="http://srv1190739.hstgr.cloud,https://srv1190739.hstgr.cloud,http://localhost:3000"
+FRONTEND_URL="https://srv1190739.hstgr.cloud"
+CORS_ORIGIN="https://srv1190739.hstgr.cloud,http://srv1190739.hstgr.cloud,http://localhost:3000"
 
 # Server
 PORT=3001
@@ -196,16 +196,18 @@ NODE_ENV=production
 # Google OAuth (Opcional)
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
+GOOGLE_REDIRECT_URI="https://srv1190739.hstgr.cloud/api/google/callback"
 
 # OpenAI (Opcional)
 OPENAI_API_KEY=""
+```NAI_API_KEY=""
 ```
-# OpenAI (Opcional)
 ### Frontend (.env.local)
 
 ```env
-NEXT_PUBLIC_API_URL=http://srv1190739.hstgr.cloud/api
-NEXT_PUBLIC_WS_URL=ws://srv1190739.hstgr.cloud
+NEXT_PUBLIC_API_URL=https://srv1190739.hstgr.cloud/api
+NEXT_PUBLIC_WS_URL=wss://srv1190739.hstgr.cloud
+```T_PUBLIC_WS_URL=ws://srv1190739.hstgr.cloud
 ```env
 NEXT_PUBLIC_API_URL=http://72.62.11.244:3001
 NEXT_PUBLIC_WS_URL=ws://72.62.11.244:3001
@@ -335,7 +337,6 @@ ssh root@72.62.11.244 "cd /var/www/tupaccrm && docker-compose restart postgres"
 - ✅ Nginx configurado como proxy inverso
 - ✅ Firewall configurado correctamente
 - ✅ Docker Compose v2 instalado
-- ⚠️ Cambiar las contraseñas de producción antes de usar en producción real
 ## 🎯 Estado Actual
 
 - [x] VPS configurado
@@ -343,11 +344,15 @@ ssh root@72.62.11.244 "cd /var/www/tupaccrm && docker-compose restart postgres"
 - [x] Aplicación desplegada
 - [x] Base de datos funcionando
 - [x] Migraciones aplicadas
-- [x] Frontend accesible en http://srv1190739.hstgr.cloud
-- [x] Backend accesible en http://srv1190739.hstgr.cloud/api
+- [x] Frontend accesible en https://srv1190739.hstgr.cloud
+- [x] Backend accesible en https://srv1190739.hstgr.cloud/api
 - [x] Dominio configurado (srv1190739.hstgr.cloud)
 - [x] Nginx configurado como proxy inverso
-- [ ] SSL/HTTPS configurado (pendiente)
+- [x] **SSL/HTTPS configurado con Let's Encrypt** ✅
+- [x] **Redirección automática HTTP → HTTPS** ✅
+- [x] **Certificado válido hasta: 2026-03-10** ✅
+- [x] **Renovación automática programada** ✅
+- [ ] Backups automáticos configurados)
 - [ ] Backups automáticos configurados2.11.244:3001
 - [ ] Dominio configurado
 - [ ] SSL/HTTPS configurado
