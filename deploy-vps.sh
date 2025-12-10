@@ -9,7 +9,7 @@ echo "🚀 Iniciando despliegue de TupacCRM en VPS..."
 
 VPS_HOST="root@72.62.11.244"
 APP_DIR="/var/www/tupaccrm"
-DOMAIN="tupaccrm.com"  # Cambia esto por tu dominio
+DOMAIN="srv1190739.hstgr.cloud"
 
 # Colores para output
 RED='\033[0;31m'
@@ -94,8 +94,8 @@ DATABASE_URL="postgresql://tupaccrm:TupacCrm2025Secure!@postgres:5432/tupaccrm?s
 JWT_SECRET="tupaccrm_super_secret_key_2025_change_in_production"
 
 # Frontend URL
-FRONTEND_URL="http://72.62.11.244:3000"
-CORS_ORIGIN="http://72.62.11.244:3000,http://localhost:3000"
+FRONTEND_URL="http://srv1190739.hstgr.cloud"
+CORS_ORIGIN="http://srv1190739.hstgr.cloud,https://srv1190739.hstgr.cloud,http://localhost:3000"
 
 # Server
 PORT=3001
@@ -111,8 +111,8 @@ EOF
 
 # Crear .env para el frontend
 cat > frontend/.env.local << 'EOF'
-NEXT_PUBLIC_API_URL=http://72.62.11.244:3001
-NEXT_PUBLIC_WS_URL=ws://72.62.11.244:3001
+NEXT_PUBLIC_API_URL=http://srv1190739.hstgr.cloud/api
+NEXT_PUBLIC_WS_URL=ws://srv1190739.hstgr.cloud
 EOF
 
 echo "✅ Archivos .env creados"
@@ -229,7 +229,9 @@ ssh $VPS_HOST << ENDSSH
 cat > /etc/nginx/sites-available/tupaccrm << 'EOF'
 server {
     listen 80;
-    server_name 72.62.11.244;
+    server_name srv1190739.hstgr.cloud 72.62.11.244;
+
+    client_max_body_size 50M;
 
     # Frontend
     location / {
@@ -246,7 +248,7 @@ server {
 
     # Backend API
     location /api {
-        proxy_pass http://localhost:3001/api;
+        proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -259,7 +261,7 @@ server {
 
     # WebSocket
     location /socket.io {
-        proxy_pass http://localhost:3001/socket.io;
+        proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";

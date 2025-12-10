@@ -3,6 +3,7 @@
 ## 📋 Información del Servidor
 
 - **IP**: `72.62.11.244`
+- **Dominio**: `srv1190739.hstgr.cloud`
 - **Usuario**: `root`
 - **Sistema**: Ubuntu 24.04 LTS
 - **Acceso SSH**: Configurado con llaves públicas (sin contraseña)
@@ -44,11 +45,14 @@ El proyecto corre con 4 contenedores:
 2. **Redis** - Cache y sesiones (puerto 6379)
 3. **Backend** - API Node.js/Express (puerto 3001)
 4. **Frontend** - Next.js (puerto 3000)
-
 ## 🌐 URLs de Acceso
 
-- **Frontend**: http://72.62.11.244
-- **Backend API**: http://72.62.11.244:3001
+- **Frontend**: http://srv1190739.hstgr.cloud
+- **Backend API**: http://srv1190739.hstgr.cloud/api
+- **WebSocket**: ws://srv1190739.hstgr.cloud
+- **Nginx**: Proxy inverso en el puerto 80
+
+> **Nota**: También se puede acceder mediante IP: http://72.62.11.2441
 - **Nginx**: Proxy inverso en el puerto 80
 
 ## 🔧 Scripts de Utilidad
@@ -174,9 +178,6 @@ docker-compose exec postgres psql -U tupaccrm -d tupaccrm
 ```
 
 ## 🔐 Variables de Entorno
-
-### Backend (.env)
-
 ```env
 # Database
 DATABASE_URL="postgresql://tupaccrm:TupacCrm2025Secure!@postgres:5432/tupaccrm?schema=public"
@@ -185,8 +186,8 @@ DATABASE_URL="postgresql://tupaccrm:TupacCrm2025Secure!@postgres:5432/tupaccrm?s
 JWT_SECRET="tupaccrm_super_secret_key_2025_change_in_production"
 
 # CORS
-FRONTEND_URL="http://72.62.11.244:3000"
-CORS_ORIGIN="http://72.62.11.244:3000,http://localhost:3000"
+FRONTEND_URL="http://srv1190739.hstgr.cloud"
+CORS_ORIGIN="http://srv1190739.hstgr.cloud,https://srv1190739.hstgr.cloud,http://localhost:3000"
 
 # Server
 PORT=3001
@@ -199,9 +200,12 @@ GOOGLE_CLIENT_SECRET=""
 # OpenAI (Opcional)
 OPENAI_API_KEY=""
 ```
-
+# OpenAI (Opcional)
 ### Frontend (.env.local)
 
+```env
+NEXT_PUBLIC_API_URL=http://srv1190739.hstgr.cloud/api
+NEXT_PUBLIC_WS_URL=ws://srv1190739.hstgr.cloud
 ```env
 NEXT_PUBLIC_API_URL=http://72.62.11.244:3001
 NEXT_PUBLIC_WS_URL=ws://72.62.11.244:3001
@@ -332,9 +336,6 @@ ssh root@72.62.11.244 "cd /var/www/tupaccrm && docker-compose restart postgres"
 - ✅ Firewall configurado correctamente
 - ✅ Docker Compose v2 instalado
 - ⚠️ Cambiar las contraseñas de producción antes de usar en producción real
-- ⚠️ Configurar backups automáticos de la base de datos
-- ⚠️ Configurar SSL/HTTPS cuando se tenga un dominio
-
 ## 🎯 Estado Actual
 
 - [x] VPS configurado
@@ -342,8 +343,12 @@ ssh root@72.62.11.244 "cd /var/www/tupaccrm && docker-compose restart postgres"
 - [x] Aplicación desplegada
 - [x] Base de datos funcionando
 - [x] Migraciones aplicadas
-- [x] Frontend accesible en http://72.62.11.244
-- [x] Backend accesible en http://72.62.11.244:3001
+- [x] Frontend accesible en http://srv1190739.hstgr.cloud
+- [x] Backend accesible en http://srv1190739.hstgr.cloud/api
+- [x] Dominio configurado (srv1190739.hstgr.cloud)
+- [x] Nginx configurado como proxy inverso
+- [ ] SSL/HTTPS configurado (pendiente)
+- [ ] Backups automáticos configurados2.11.244:3001
 - [ ] Dominio configurado
 - [ ] SSL/HTTPS configurado
 - [ ] Backups automáticos configurados
