@@ -74,6 +74,69 @@ export class AssistantService {
     return assistant;
   }
 
+  async createAssistantWithAI(userId: string, conversation: string[]) {
+    if (!openai) throw new Error('OpenAI API key not configured');
+    
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          {
+            role: 'system',
+            content: 'Eres un experto en diseño de asistentes de IA. Basándote en la conversación del usuario, genera una configuración completa para un asistente de OpenAI. Responde SOLO en formato JSON válido con esta estructura: {"name": "Nombre del asistente", "description": "Descripción breve", "instructions": "Instrucciones detalladas del sistema para el asistente", "model": "gpt-4-turbo-preview", "temperature": 0.7}',
+          },
+          ...conversation.map((msg, i) => ({
+            role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+            content: msg,
+          })),
+        ],
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+      });
+
+      const config = JSON.parse(response.choices[0].message.content || '{}');
+      return await this.createAssistant(userId, config);
+    } catch (error: any) {
+      console.error('Error creating assistant with AI:', error);
+      throw new Error('Failed to create assistant with AI: ' + error.message);
+    }
+  }
+
+  async updateAssistant(assistantId: string, userId: string, data: Partial<CreateAssistantDTO>) {
+    if (!openai) throw new Error('OpenAI API key not configured');
+    
+    const assistant = await prisma.assistant.findFirst({
+      where: { id: assistantId, userId },
+    });
+    
+    if (!assistant) throw new Error('Assistant not found');
+    
+    if (assistant.openaiId) {
+      await openai.beta.assistants.update(assistant.openaiId, {
+        name: data.name,
+        description: data.description,
+        instructions: data.instructions,
+        model: data.model,
+        tools: (data.tools || []) as any,
+      });
+    }
+    
+    const updated = await prisma.assistant.update({
+      where: { id: assistantId },
+      data: {
+        name: data.name,
+        description: data.description,
+        instructions: data.instructions,
+        model: data.model,
+        temperature: data.temperature,
+        tools: data.tools,
+        fileIds: data.fileIds,
+      },
+    });
+    
+    return updated;
+  }
+
   async deleteAssistant(assistantId: string, userId: string) {
     if (!openai) throw new Error('OpenAI API key not configured');
     
