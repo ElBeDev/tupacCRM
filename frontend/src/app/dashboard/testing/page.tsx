@@ -92,6 +92,14 @@ export default function TestingPage() {
   const [message, setMessage] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
+
+  const handleOpenModal = () => {
+    console.log('🔵 Opening modal...');
+    console.log('🔵 isOpen:', isOpen);
+    alert('Botón clickeado!');
+    onOpen();
+    console.log('🔵 After onOpen, isOpen should be true');
+  };
   
   // Estados para asistentes
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -122,7 +130,8 @@ export default function TestingPage() {
   const loadAssistants = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
+      console.log('🔑 Token:', token ? 'exists' : 'missing');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assistants`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -153,7 +162,7 @@ export default function TestingPage() {
 
   const loadTestMessages = async (assistantId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/assistants/${assistantId}/messages`,
         {
@@ -185,7 +194,7 @@ export default function TestingPage() {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assistants`, {
         method: 'POST',
         headers: {
@@ -244,7 +253,7 @@ export default function TestingPage() {
 
     try {
       setTestingLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/assistants/${selectedAssistant.id}/test`,
         {
@@ -285,7 +294,7 @@ export default function TestingPage() {
     if (!confirm('¿Estás seguro de eliminar este asistente?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/assistants/${assistantId}`,
         {
@@ -328,7 +337,7 @@ export default function TestingPage() {
     if (!confirm('¿Estás seguro de limpiar el historial de mensajes?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/assistants/${selectedAssistant.id}/messages`,
         {
@@ -363,9 +372,15 @@ export default function TestingPage() {
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
         {/* Header */}
-        <Flex justify="space-between" align="center">
+        <Flex justify="space-between" align="center" position="relative" zIndex={10}>
           <Heading size="lg">Pruebas de Asistentes</Heading>
-          <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={onOpen}>
+          <Button 
+            leftIcon={<FiPlus />} 
+            colorScheme="blue" 
+            onClick={handleOpenModal}
+            zIndex={100}
+            position="relative"
+          >
             Crear Asistente
           </Button>
         </Flex>
@@ -525,8 +540,8 @@ export default function TestingPage() {
       </VStack>
 
       {/* Modal de Creación */}
-      <Modal isOpen={isOpen} onClose={onClose} size="xl">
-        <ModalOverlay />
+      <Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered>
+        <ModalOverlay bg="blackAlpha.600" />
         <ModalContent>
           <ModalHeader>Crear Nuevo Asistente</ModalHeader>
           <ModalCloseButton />
