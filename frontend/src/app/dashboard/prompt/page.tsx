@@ -21,8 +21,6 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
-  Select,
-  Stack,
   Text,
   Textarea,
   useDisclosure,
@@ -31,40 +29,49 @@ import {
   Badge,
   Divider,
   Spinner,
+  Avatar,
+  Tooltip,
+  FormControl,
+  FormLabel,
+  FormHelperText,
+  Slider,
+  SliderTrack,
+  SliderFilledTrack,
+  SliderThumb,
+  Image,
+  Grid,
+  GridItem,
 } from '@chakra-ui/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   FiMessageSquare,
   FiMoreVertical,
   FiPlus,
   FiSend,
   FiTrash2,
+  FiImage,
+  FiX,
+  FiSettings,
+  FiEye,
+  FiRefreshCw,
+  FiUpload,
 } from 'react-icons/fi';
 
 // Iconos personalizados
-const MagicWandIcon = (props: any) => (
-  <Icon viewBox="0 0 24 24" {...props}>
-    <path
-      fill="currentColor"
-      d="M7.5,5.6L5,7L6.4,4.5L5,2L7.5,3.4L10,2L8.6,4.5L10,7L7.5,5.6M19.5,15.4L22,14L20.6,16.5L22,19L19.5,17.6L17,19L18.4,16.5L17,14L19.5,15.4M22,2L20.6,4.5L22,7L19.5,5.6L17,7L18.4,4.5L17,2L19.5,3.4L22,2M13.34,12.78L15.78,10.34L13.66,8.22L11.22,10.66L13.34,12.78M14.37,7.29L16.71,9.63C17.1,10 17.1,10.65 16.71,11.04L5.04,22.71C4.65,23.1 4,23.1 3.63,22.71L1.29,20.37C0.9,20 0.9,19.35 1.29,18.96L12.96,7.29C13.35,6.9 14,6.9 14.37,7.29Z"
-    />
-  </Icon>
-);
-
-const EditIcon = (props: any) => (
-  <Icon viewBox="0 0 24 24" {...props}>
-    <path
-      fill="currentColor"
-      d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"
-    />
-  </Icon>
-);
-
 const RobotIcon = (props: any) => (
   <Icon viewBox="0 0 24 24" {...props}>
     <path
       fill="currentColor"
       d="M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2M7.5,13A2.5,2.5 0 0,0 5,15.5A2.5,2.5 0 0,0 7.5,18A2.5,2.5 0 0,0 10,15.5A2.5,2.5 0 0,0 7.5,13M16.5,13A2.5,2.5 0 0,0 14,15.5A2.5,2.5 0 0,0 16.5,18A2.5,2.5 0 0,0 19,15.5A2.5,2.5 0 0,0 16.5,13Z"
+    />
+  </Icon>
+);
+
+const SparklesIcon = (props: any) => (
+  <Icon viewBox="0 0 24 24" {...props}>
+    <path
+      fill="currentColor"
+      d="M12,2L14.4,8.6L21,9L16.5,14L18,21L12,17.5L6,21L7.5,14L3,9L9.6,8.6L12,2Z"
     />
   </Icon>
 );
@@ -78,6 +85,7 @@ interface Assistant {
   temperature: number;
   isActive: boolean;
   createdAt: string;
+  openaiId?: string;
 }
 
 interface TestMessage {
@@ -85,13 +93,51 @@ interface TestMessage {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
+  imageUrl?: string;
 }
 
-export default function TestingPage() {
-  const [mode, setMode] = useState<'ai' | 'manual'>('manual');
+// Modelos disponibles con sus capacidades
+const AVAILABLE_MODELS = [
+  { 
+    id: 'gpt-4o', 
+    name: 'GPT-4o', 
+    description: 'Más inteligente, con visión',
+    vision: true,
+    badge: 'Recomendado',
+    badgeColor: 'green'
+  },
+  { 
+    id: 'gpt-4o-mini', 
+    name: 'GPT-4o Mini', 
+    description: 'Rápido y económico, con visión',
+    vision: true,
+    badge: 'Económico',
+    badgeColor: 'blue'
+  },
+  { 
+    id: 'gpt-4-turbo', 
+    name: 'GPT-4 Turbo', 
+    description: 'Potente, con visión',
+    vision: true,
+    badge: null,
+    badgeColor: null
+  },
+  { 
+    id: 'gpt-3.5-turbo', 
+    name: 'GPT-3.5 Turbo', 
+    description: 'Rápido y económico',
+    vision: false,
+    badge: null,
+    badgeColor: null
+  },
+];
+
+export default function AssistantsPage() {
   const [message, setMessage] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Estados para asistentes
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -100,12 +146,26 @@ export default function TestingPage() {
   const [loading, setLoading] = useState(false);
   const [testingLoading, setTestingLoading] = useState(false);
   
+  // Estados para imágenes
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagesPreviews, setImagesPreviews] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  
   // Estados para creación de asistente
   const [assistantName, setAssistantName] = useState('');
   const [assistantDescription, setAssistantDescription] = useState('');
   const [assistantInstructions, setAssistantInstructions] = useState('');
-  const [assistantModel, setAssistantModel] = useState('gpt-4-turbo-preview');
-  const [assistantTemperature, setAssistantTemperature] = useState('0.7');
+  const [assistantModel, setAssistantModel] = useState('gpt-4o');
+  const [assistantTemperature, setAssistantTemperature] = useState(0.7);
+
+  // Scroll to bottom cuando hay nuevos mensajes
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [testMessages, scrollToBottom]);
 
   // Cargar asistentes al montar
   useEffect(() => {
@@ -115,7 +175,7 @@ export default function TestingPage() {
   // Cargar mensajes cuando se selecciona un asistente
   useEffect(() => {
     if (selectedAssistant) {
-      loadTestMessages(selectedAssistant.id);
+      loadMessages(selectedAssistant.id);
     }
   }, [selectedAssistant]);
 
@@ -123,7 +183,6 @@ export default function TestingPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('accessToken');
-      console.log('🔑 Token:', token ? 'exists' : 'missing');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assistants`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -135,7 +194,6 @@ export default function TestingPage() {
       const data = await response.json();
       setAssistants(data);
 
-      // Seleccionar el primer asistente si existe
       if (data.length > 0 && !selectedAssistant) {
         setSelectedAssistant(data[0]);
       }
@@ -152,7 +210,7 @@ export default function TestingPage() {
     }
   };
 
-  const loadTestMessages = async (assistantId: string) => {
+  const loadMessages = async (assistantId: string) => {
     try {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(
@@ -173,7 +231,15 @@ export default function TestingPage() {
     }
   };
 
-  const createAssistantManual = async () => {
+  const resetForm = () => {
+    setAssistantName('');
+    setAssistantDescription('');
+    setAssistantInstructions('');
+    setAssistantModel('gpt-4o');
+    setAssistantTemperature(0.7);
+  };
+
+  const createAssistant = async () => {
     if (!assistantName || !assistantInstructions) {
       toast({
         title: 'Error',
@@ -198,7 +264,7 @@ export default function TestingPage() {
           description: assistantDescription,
           instructions: assistantInstructions,
           model: assistantModel,
-          temperature: parseFloat(assistantTemperature),
+          temperature: assistantTemperature,
         }),
       });
 
@@ -210,20 +276,13 @@ export default function TestingPage() {
       const newAssistant = await response.json();
       
       toast({
-        title: 'Éxito',
-        description: `Asistente "${newAssistant.name}" creado correctamente`,
+        title: '¡Asistente Creado!',
+        description: `"${newAssistant.name}" está listo para ayudarte`,
         status: 'success',
         duration: 3000,
       });
 
-      // Limpiar formulario
-      setAssistantName('');
-      setAssistantDescription('');
-      setAssistantInstructions('');
-      setAssistantModel('gpt-4-turbo-preview');
-      setAssistantTemperature('0.7');
-      
-      // Recargar lista y cerrar modal
+      resetForm();
       await loadAssistants();
       setSelectedAssistant(newAssistant);
       onClose();
@@ -240,12 +299,88 @@ export default function TestingPage() {
     }
   };
 
+  // Manejo de imágenes
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    addImages(files);
+  };
+
+  const addImages = (files: File[]) => {
+    const validFiles = files.filter(file => 
+      file.type.startsWith('image/') && file.size < 20 * 1024 * 1024
+    );
+
+    if (validFiles.length !== files.length) {
+      toast({
+        title: 'Aviso',
+        description: 'Algunas imágenes fueron ignoradas (máx 20MB, solo imágenes)',
+        status: 'warning',
+        duration: 3000,
+      });
+    }
+
+    setSelectedImages(prev => [...prev, ...validFiles].slice(0, 5));
+    
+    // Crear previews
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagesPreviews(prev => [...prev, e.target?.result as string].slice(0, 5));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    setImagesPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Drag and Drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    addImages(files);
+  };
+
   const sendTestMessage = async () => {
-    if (!message.trim() || !selectedAssistant) return;
+    if ((!message.trim() && selectedImages.length === 0) || !selectedAssistant) return;
 
     try {
       setTestingLoading(true);
       const token = localStorage.getItem('accessToken');
+      
+      // Preparar contenido con imágenes si las hay
+      let content: any = message.trim();
+      
+      if (selectedImages.length > 0) {
+        const imagePromises = selectedImages.map(file => {
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+        });
+        
+        const base64Images = await Promise.all(imagePromises);
+        
+        content = {
+          text: message.trim() || 'Analiza esta imagen',
+          images: base64Images,
+        };
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/assistants/${selectedAssistant.id}/test`,
         {
@@ -255,7 +390,7 @@ export default function TestingPage() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            message: message.trim(),
+            message: typeof content === 'string' ? content : JSON.stringify(content),
           }),
         }
       );
@@ -265,9 +400,13 @@ export default function TestingPage() {
         throw new Error(error.error || 'Failed to send message');
       }
 
-      // Recargar mensajes
-      await loadTestMessages(selectedAssistant.id);
+      // Limpiar inputs
       setMessage('');
+      setSelectedImages([]);
+      setImagesPreviews([]);
+      
+      // Recargar mensajes
+      await loadMessages(selectedAssistant.id);
       
     } catch (error: any) {
       console.error('Error sending test message:', error);
@@ -283,7 +422,7 @@ export default function TestingPage() {
   };
 
   const deleteAssistant = async (assistantId: string) => {
-    if (!confirm('¿Estás seguro de eliminar este asistente?')) return;
+    if (!confirm('¿Estás seguro de eliminar este asistente? Esta acción no se puede deshacer.')) return;
 
     try {
       const token = localStorage.getItem('accessToken');
@@ -300,13 +439,11 @@ export default function TestingPage() {
       if (!response.ok) throw new Error('Failed to delete assistant');
 
       toast({
-        title: 'Éxito',
-        description: 'Asistente eliminado correctamente',
+        title: 'Asistente eliminado',
         status: 'success',
         duration: 3000,
       });
 
-      // Si era el seleccionado, limpiar selección
       if (selectedAssistant?.id === assistantId) {
         setSelectedAssistant(null);
         setTestMessages([]);
@@ -326,7 +463,7 @@ export default function TestingPage() {
 
   const clearMessages = async () => {
     if (!selectedAssistant) return;
-    if (!confirm('¿Estás seguro de limpiar el historial de mensajes?')) return;
+    if (!confirm('¿Limpiar todo el historial de conversación?')) return;
 
     try {
       const token = localStorage.getItem('accessToken');
@@ -344,10 +481,9 @@ export default function TestingPage() {
 
       setTestMessages([]);
       toast({
-        title: 'Éxito',
-        description: 'Historial limpiado correctamente',
+        title: 'Historial limpiado',
         status: 'success',
-        duration: 3000,
+        duration: 2000,
       });
     } catch (error) {
       console.error('Error clearing messages:', error);
@@ -361,137 +497,377 @@ export default function TestingPage() {
   };
 
   return (
-    <Container maxW="container.xl" py={8}>
-      <VStack spacing={6} align="stretch">
-        {/* Header */}
-        <Flex justify="space-between" align="center">
-          <Heading size="lg">Asistentes</Heading>
-          <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={onOpen}>
-            Crear Asistente
+    <Box minH="100vh" bg="gray.50">
+      {/* Header */}
+      <Box bg="white" borderBottom="1px" borderColor="gray.200" px={6} py={4}>
+        <Flex justify="space-between" align="center" maxW="1600px" mx="auto">
+          <HStack spacing={3}>
+            <Box
+              p={2}
+              bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              borderRadius="xl"
+            >
+              <Icon as={RobotIcon} boxSize={6} color="white" />
+            </Box>
+            <Box>
+              <Heading size="md" bgGradient="linear(to-r, purple.600, blue.500)" bgClip="text">
+                Asistentes IA
+              </Heading>
+              <Text fontSize="xs" color="gray.500">
+                Crea y prueba asistentes con GPT-4o Vision
+              </Text>
+            </Box>
+          </HStack>
+          
+          <Button 
+            leftIcon={<FiPlus />} 
+            bgGradient="linear(to-r, purple.500, blue.500)"
+            color="white"
+            _hover={{ bgGradient: "linear(to-r, purple.600, blue.600)" }}
+            onClick={onOpen}
+            size="md"
+            borderRadius="xl"
+            shadow="md"
+          >
+            Nuevo Asistente
           </Button>
         </Flex>
+      </Box>
 
-        {/* Main Content */}
-        <Flex gap={6}>
-          {/* Lista de Asistentes */}
-          <Box w="300px" bg="white" borderRadius="lg" p={4} shadow="sm">
-            <Heading size="sm" mb={4}>
-              Mis Asistentes
-            </Heading>
+      {/* Main Content */}
+      <Flex maxW="1600px" mx="auto" p={6} gap={6} minH="calc(100vh - 80px)">
+        {/* Sidebar - Lista de Asistentes */}
+        <Box 
+          w="320px" 
+          bg="white" 
+          borderRadius="2xl" 
+          shadow="sm"
+          border="1px"
+          borderColor="gray.200"
+          overflow="hidden"
+        >
+          <Box p={4} borderBottom="1px" borderColor="gray.100">
+            <HStack justify="space-between">
+              <Text fontWeight="semibold" color="gray.700">
+                Mis Asistentes
+              </Text>
+              <Badge colorScheme="purple" borderRadius="full" px={2}>
+                {assistants.length}
+              </Badge>
+            </HStack>
+          </Box>
+          
+          <Box p={3} maxH="calc(100vh - 200px)" overflowY="auto">
             {loading ? (
               <Flex justify="center" py={8}>
-                <Spinner />
+                <Spinner color="purple.500" />
               </Flex>
             ) : assistants.length === 0 ? (
-              <Text color="gray.500" fontSize="sm" textAlign="center" py={8}>
-                No tienes asistentes aún
-              </Text>
+              <VStack py={8} spacing={3}>
+                <Icon as={RobotIcon} boxSize={12} color="gray.300" />
+                <Text color="gray.500" fontSize="sm" textAlign="center">
+                  No tienes asistentes aún
+                </Text>
+                <Button size="sm" colorScheme="purple" variant="ghost" onClick={onOpen}>
+                  Crear el primero
+                </Button>
+              </VStack>
             ) : (
               <VStack spacing={2} align="stretch">
-                {assistants.map((assistant) => (
-                  <Flex
-                    key={assistant.id}
-                    p={3}
-                    bg={selectedAssistant?.id === assistant.id ? 'blue.50' : 'gray.50'}
-                    borderRadius="md"
-                    cursor="pointer"
-                    onClick={() => setSelectedAssistant(assistant)}
-                    justify="space-between"
-                    align="center"
-                  >
-                    <VStack align="start" spacing={0} flex={1}>
-                      <Text fontWeight="medium" fontSize="sm">
-                        {assistant.name}
-                      </Text>
-                      <Text fontSize="xs" color="gray.600">
-                        {assistant.model}
-                      </Text>
-                    </VStack>
-                    <Menu>
-                      <MenuButton
-                        as={IconButton}
-                        icon={<FiMoreVertical />}
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <MenuList>
-                        <MenuItem
-                          icon={<FiTrash2 />}
-                          onClick={() => deleteAssistant(assistant.id)}
-                        >
-                          Eliminar
-                        </MenuItem>
-                      </MenuList>
-                    </Menu>
-                  </Flex>
-                ))}
+                {assistants.map((assistant) => {
+                  const modelInfo = AVAILABLE_MODELS.find(m => m.id === assistant.model);
+                  return (
+                    <Box
+                      key={assistant.id}
+                      p={3}
+                      bg={selectedAssistant?.id === assistant.id ? 'purple.50' : 'gray.50'}
+                      borderRadius="xl"
+                      cursor="pointer"
+                      onClick={() => setSelectedAssistant(assistant)}
+                      border="2px"
+                      borderColor={selectedAssistant?.id === assistant.id ? 'purple.300' : 'transparent'}
+                      transition="all 0.2s"
+                      _hover={{ 
+                        bg: selectedAssistant?.id === assistant.id ? 'purple.50' : 'gray.100',
+                        transform: 'translateX(4px)'
+                      }}
+                    >
+                      <Flex justify="space-between" align="start">
+                        <HStack spacing={3} flex={1}>
+                          <Avatar 
+                            size="sm" 
+                            name={assistant.name}
+                            bg={selectedAssistant?.id === assistant.id ? 'purple.500' : 'gray.400'}
+                            icon={<Icon as={RobotIcon} boxSize={4} />}
+                          />
+                          <Box flex={1} overflow="hidden">
+                            <Text fontWeight="medium" fontSize="sm" noOfLines={1}>
+                              {assistant.name}
+                            </Text>
+                            <HStack spacing={1} mt={1}>
+                              <Badge 
+                                fontSize="2xs" 
+                                colorScheme={modelInfo?.vision ? 'green' : 'gray'}
+                                borderRadius="full"
+                              >
+                                {modelInfo?.name || assistant.model}
+                              </Badge>
+                              {modelInfo?.vision && (
+                                <Tooltip label="Soporta imágenes">
+                                  <Badge fontSize="2xs" colorScheme="blue" borderRadius="full">
+                                    <HStack spacing={0.5}>
+                                      <Icon as={FiEye} boxSize={2} />
+                                      <Text>Vision</Text>
+                                    </HStack>
+                                  </Badge>
+                                </Tooltip>
+                              )}
+                            </HStack>
+                          </Box>
+                        </HStack>
+                        
+                        <Menu>
+                          <MenuButton
+                            as={IconButton}
+                            icon={<FiMoreVertical />}
+                            variant="ghost"
+                            size="xs"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <MenuList shadow="lg" borderRadius="xl">
+                            <MenuItem 
+                              icon={<FiTrash2 />} 
+                              color="red.500"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteAssistant(assistant.id);
+                              }}
+                            >
+                              Eliminar
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
+                      </Flex>
+                    </Box>
+                  );
+                })}
               </VStack>
             )}
           </Box>
+        </Box>
 
-          {/* Área de Pruebas */}
-          <Box flex={1} bg="white" borderRadius="lg" p={6} shadow="sm">
-            {selectedAssistant ? (
-              <VStack spacing={4} align="stretch" h="600px">
-                {/* Header del Asistente */}
+        {/* Área de Chat */}
+        <Box 
+          flex={1} 
+          bg="white" 
+          borderRadius="2xl" 
+          shadow="sm"
+          border="1px"
+          borderColor="gray.200"
+          display="flex"
+          flexDirection="column"
+          overflow="hidden"
+        >
+          {selectedAssistant ? (
+            <>
+              {/* Header del Chat */}
+              <Box p={4} borderBottom="1px" borderColor="gray.100" bg="gray.50">
                 <Flex justify="space-between" align="center">
-                  <VStack align="start" spacing={0}>
-                    <Heading size="md">{selectedAssistant.name}</Heading>
-                    {selectedAssistant.description && (
-                      <Text fontSize="sm" color="gray.600">
-                        {selectedAssistant.description}
+                  <HStack spacing={3}>
+                    <Avatar 
+                      size="md" 
+                      name={selectedAssistant.name}
+                      bg="purple.500"
+                      icon={<Icon as={RobotIcon} boxSize={5} />}
+                    />
+                    <Box>
+                      <HStack>
+                        <Heading size="sm">{selectedAssistant.name}</Heading>
+                        <Badge colorScheme="green" borderRadius="full" fontSize="2xs">
+                          Activo
+                        </Badge>
+                      </HStack>
+                      {selectedAssistant.description && (
+                        <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                          {selectedAssistant.description}
+                        </Text>
+                      )}
+                    </Box>
+                  </HStack>
+                  
+                  <HStack>
+                    <Tooltip label="Limpiar conversación">
+                      <IconButton
+                        aria-label="Clear"
+                        icon={<FiRefreshCw />}
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearMessages}
+                      />
+                    </Tooltip>
+                    <Tooltip label="Configuración">
+                      <IconButton
+                        aria-label="Settings"
+                        icon={<FiSettings />}
+                        variant="ghost"
+                        size="sm"
+                      />
+                    </Tooltip>
+                  </HStack>
+                </Flex>
+              </Box>
+
+              {/* Mensajes */}
+              <Box 
+                flex={1} 
+                overflowY="auto" 
+                p={4}
+                bg="gray.50"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                position="relative"
+              >
+                {isDragging && (
+                  <Box
+                    position="absolute"
+                    inset={0}
+                    bg="purple.50"
+                    border="3px dashed"
+                    borderColor="purple.300"
+                    borderRadius="xl"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    zIndex={10}
+                  >
+                    <VStack>
+                      <Icon as={FiUpload} boxSize={12} color="purple.400" />
+                      <Text color="purple.600" fontWeight="medium">
+                        Suelta las imágenes aquí
                       </Text>
+                    </VStack>
+                  </Box>
+                )}
+                
+                {testMessages.length === 0 ? (
+                  <VStack justify="center" h="full" spacing={4} py={12}>
+                    <Box
+                      p={4}
+                      bg="white"
+                      borderRadius="2xl"
+                      shadow="sm"
+                    >
+                      <Icon as={SparklesIcon} boxSize={12} color="purple.300" />
+                    </Box>
+                    <Text color="gray.500" textAlign="center" fontSize="sm">
+                      Inicia una conversación con <strong>{selectedAssistant.name}</strong>
+                    </Text>
+                    {AVAILABLE_MODELS.find(m => m.id === selectedAssistant.model)?.vision && (
+                      <HStack>
+                        <Icon as={FiImage} color="blue.400" />
+                        <Text fontSize="xs" color="gray.500">
+                          Puedes enviar imágenes arrastrándolas aquí
+                        </Text>
+                      </HStack>
                     )}
                   </VStack>
-                  <Button size="sm" variant="ghost" onClick={clearMessages}>
-                    Limpiar Chat
-                  </Button>
-                </Flex>
-
-                <Divider />
-
-                {/* Mensajes */}
-                <Box
-                  flex={1}
-                  overflowY="auto"
-                  p={4}
-                  bg="gray.50"
-                  borderRadius="md"
-                >
-                  {testMessages.length === 0 ? (
-                    <Text color="gray.500" textAlign="center" py={8}>
-                      Envía un mensaje para probar el asistente
-                    </Text>
-                  ) : (
-                    <VStack spacing={3} align="stretch">
-                      {testMessages.map((msg) => (
-                        <Flex
-                          key={msg.id}
-                          justify={msg.role === 'user' ? 'flex-end' : 'flex-start'}
+                ) : (
+                  <VStack spacing={4} align="stretch">
+                    {testMessages.map((msg) => (
+                      <Flex
+                        key={msg.id}
+                        justify={msg.role === 'user' ? 'flex-end' : 'flex-start'}
+                      >
+                        <HStack 
+                          align="start" 
+                          spacing={3}
+                          maxW="75%"
+                          flexDirection={msg.role === 'user' ? 'row-reverse' : 'row'}
                         >
+                          <Avatar 
+                            size="sm"
+                            name={msg.role === 'user' ? 'U' : selectedAssistant.name}
+                            bg={msg.role === 'user' ? 'blue.500' : 'purple.500'}
+                            icon={msg.role === 'assistant' ? <Icon as={RobotIcon} boxSize={3} /> : undefined}
+                          />
                           <Box
-                            maxW="70%"
                             bg={msg.role === 'user' ? 'blue.500' : 'white'}
                             color={msg.role === 'user' ? 'white' : 'gray.800'}
-                            p={3}
-                            borderRadius="lg"
+                            p={4}
+                            borderRadius="2xl"
+                            borderBottomRightRadius={msg.role === 'user' ? 'sm' : '2xl'}
+                            borderBottomLeftRadius={msg.role === 'assistant' ? 'sm' : '2xl'}
                             shadow="sm"
                           >
                             <Text fontSize="sm" whiteSpace="pre-wrap">
                               {msg.content}
                             </Text>
                           </Box>
-                        </Flex>
-                      ))}
-                    </VStack>
-                  )}
-                </Box>
+                        </HStack>
+                      </Flex>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </VStack>
+                )}
+              </Box>
 
-                {/* Input de Mensaje */}
-                <HStack>
-                  <Textarea
-                    placeholder="Escribe un mensaje..."
+              {/* Input de Mensaje */}
+              <Box p={4} bg="white" borderTop="1px" borderColor="gray.100">
+                {/* Preview de imágenes seleccionadas */}
+                {imagesPreviews.length > 0 && (
+                  <HStack mb={3} spacing={2} flexWrap="wrap">
+                    {imagesPreviews.map((preview, index) => (
+                      <Box key={index} position="relative">
+                        <Image
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          boxSize="60px"
+                          objectFit="cover"
+                          borderRadius="lg"
+                          border="2px"
+                          borderColor="purple.200"
+                        />
+                        <IconButton
+                          aria-label="Remove"
+                          icon={<FiX />}
+                          size="xs"
+                          colorScheme="red"
+                          borderRadius="full"
+                          position="absolute"
+                          top={-2}
+                          right={-2}
+                          onClick={() => removeImage(index)}
+                        />
+                      </Box>
+                    ))}
+                  </HStack>
+                )}
+                
+                <HStack spacing={3}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={handleImageSelect}
+                  />
+                  
+                  {AVAILABLE_MODELS.find(m => m.id === selectedAssistant.model)?.vision && (
+                    <Tooltip label="Adjuntar imagen">
+                      <IconButton
+                        aria-label="Attach image"
+                        icon={<FiImage />}
+                        variant="ghost"
+                        colorScheme="purple"
+                        onClick={() => fileInputRef.current?.click()}
+                      />
+                    </Tooltip>
+                  )}
+                  
+                  <Input
+                    placeholder="Escribe tu mensaje..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={(e) => {
@@ -500,145 +876,209 @@ export default function TestingPage() {
                         sendTestMessage();
                       }
                     }}
-                    rows={2}
+                    bg="gray.50"
+                    border="none"
+                    borderRadius="xl"
+                    py={6}
+                    _focus={{ bg: 'gray.100', boxShadow: 'none' }}
                   />
+                  
                   <IconButton
                     aria-label="Enviar"
                     icon={testingLoading ? <Spinner size="sm" /> : <FiSend />}
-                    colorScheme="blue"
-                    isDisabled={!message.trim() || testingLoading}
+                    colorScheme="purple"
+                    borderRadius="xl"
+                    isDisabled={(!message.trim() && selectedImages.length === 0) || testingLoading}
                     onClick={sendTestMessage}
                   />
                 </HStack>
-              </VStack>
-            ) : (
-              <Flex justify="center" align="center" h="600px">
-                <VStack spacing={4}>
-                  <Icon as={RobotIcon} boxSize={16} color="gray.400" />
-                  <Text color="gray.500">
-                    Selecciona un asistente para comenzar
+              </Box>
+            </>
+          ) : (
+            <Flex justify="center" align="center" h="full" bg="gray.50">
+              <VStack spacing={6}>
+                <Box
+                  p={6}
+                  bg="white"
+                  borderRadius="3xl"
+                  shadow="sm"
+                >
+                  <Icon as={RobotIcon} boxSize={20} color="gray.300" />
+                </Box>
+                <VStack spacing={2}>
+                  <Text color="gray.600" fontWeight="medium">
+                    Selecciona un asistente
+                  </Text>
+                  <Text color="gray.400" fontSize="sm">
+                    o crea uno nuevo para comenzar
                   </Text>
                 </VStack>
-              </Flex>
-            )}
-          </Box>
-        </Flex>
-      </VStack>
+                <Button
+                  leftIcon={<FiPlus />}
+                  colorScheme="purple"
+                  variant="outline"
+                  onClick={onOpen}
+                  borderRadius="xl"
+                >
+                  Crear Asistente
+                </Button>
+              </VStack>
+            </Flex>
+          )}
+        </Box>
+      </Flex>
 
       {/* Modal de Creación */}
-      <Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered>
-        <ModalOverlay bg="blackAlpha.600" />
-        <ModalContent>
-          <ModalHeader>Crear Nuevo Asistente</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {/* Selector de Modo */}
-            <HStack mb={6} spacing={4}>
-              <Button
-                leftIcon={<EditIcon />}
-                onClick={() => setMode('manual')}
-                colorScheme={mode === 'manual' ? 'blue' : 'gray'}
-                variant={mode === 'manual' ? 'solid' : 'outline'}
-                flex={1}
+      <Modal isOpen={isOpen} onClose={onClose} size="2xl" isCentered>
+        <ModalOverlay bg="blackAlpha.600" backdropFilter="blur(4px)" />
+        <ModalContent borderRadius="2xl" mx={4}>
+          <ModalHeader>
+            <HStack spacing={3}>
+              <Box
+                p={2}
+                bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                borderRadius="xl"
               >
-                Manual
-              </Button>
-              <Button
-                leftIcon={<MagicWandIcon />}
-                onClick={() => setMode('ai')}
-                colorScheme={mode === 'ai' ? 'purple' : 'gray'}
-                variant={mode === 'ai' ? 'solid' : 'outline'}
-                flex={1}
-                isDisabled
-              >
-                Con IA (Próximamente)
-              </Button>
+                <Icon as={FiPlus} boxSize={5} color="white" />
+              </Box>
+              <Box>
+                <Text>Crear Nuevo Asistente</Text>
+                <Text fontSize="sm" fontWeight="normal" color="gray.500">
+                  Configura tu asistente de IA personalizado
+                </Text>
+              </Box>
             </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          
+          <ModalBody pb={6}>
+            <VStack spacing={5} align="stretch">
+              {/* Nombre */}
+              <FormControl isRequired>
+                <FormLabel fontSize="sm" fontWeight="medium">Nombre</FormLabel>
+                <Input
+                  placeholder="Ej: Asistente de Ventas"
+                  value={assistantName}
+                  onChange={(e) => setAssistantName(e.target.value)}
+                  borderRadius="xl"
+                  size="lg"
+                />
+              </FormControl>
 
-            {mode === 'manual' && (
-              <VStack spacing={4} align="stretch">
-                <Box>
-                  <Text mb={2} fontWeight="medium">
-                    Nombre
-                  </Text>
-                  <Input
-                    placeholder="Ej: Asistente de Ventas"
-                    value={assistantName}
-                    onChange={(e) => setAssistantName(e.target.value)}
-                  />
-                </Box>
+              {/* Descripción */}
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="medium">Descripción</FormLabel>
+                <Input
+                  placeholder="Breve descripción del asistente"
+                  value={assistantDescription}
+                  onChange={(e) => setAssistantDescription(e.target.value)}
+                  borderRadius="xl"
+                />
+              </FormControl>
 
-                <Box>
-                  <Text mb={2} fontWeight="medium">
-                    Descripción (opcional)
-                  </Text>
-                  <Input
-                    placeholder="Breve descripción del asistente"
-                    value={assistantDescription}
-                    onChange={(e) => setAssistantDescription(e.target.value)}
-                  />
-                </Box>
+              {/* Instrucciones */}
+              <FormControl isRequired>
+                <FormLabel fontSize="sm" fontWeight="medium">Instrucciones del Sistema</FormLabel>
+                <Textarea
+                  placeholder="Define cómo debe comportarse el asistente, su personalidad, conocimientos específicos y restricciones..."
+                  value={assistantInstructions}
+                  onChange={(e) => setAssistantInstructions(e.target.value)}
+                  rows={5}
+                  borderRadius="xl"
+                />
+                <FormHelperText>
+                  Sé específico sobre el rol, tono y tipo de respuestas que esperas
+                </FormHelperText>
+              </FormControl>
 
-                <Box>
-                  <Text mb={2} fontWeight="medium">
-                    Instrucciones del Sistema
-                  </Text>
-                  <Textarea
-                    placeholder="Define cómo debe comportarse el asistente..."
-                    value={assistantInstructions}
-                    onChange={(e) => setAssistantInstructions(e.target.value)}
-                    rows={6}
-                  />
-                </Box>
+              {/* Modelo */}
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="medium">Modelo</FormLabel>
+                <Grid templateColumns="repeat(2, 1fr)" gap={3}>
+                  {AVAILABLE_MODELS.map((model) => (
+                    <GridItem key={model.id}>
+                      <Box
+                        p={3}
+                        bg={assistantModel === model.id ? 'purple.50' : 'gray.50'}
+                        borderRadius="xl"
+                        border="2px"
+                        borderColor={assistantModel === model.id ? 'purple.400' : 'transparent'}
+                        cursor="pointer"
+                        onClick={() => setAssistantModel(model.id)}
+                        transition="all 0.2s"
+                        _hover={{ bg: assistantModel === model.id ? 'purple.50' : 'gray.100' }}
+                      >
+                        <HStack justify="space-between">
+                          <VStack align="start" spacing={0}>
+                            <HStack>
+                              <Text fontWeight="medium" fontSize="sm">{model.name}</Text>
+                              {model.vision && (
+                                <Icon as={FiEye} color="blue.400" boxSize={3} />
+                              )}
+                            </HStack>
+                            <Text fontSize="xs" color="gray.500">{model.description}</Text>
+                          </VStack>
+                          {model.badge && (
+                            <Badge colorScheme={model.badgeColor || 'gray'} fontSize="2xs" borderRadius="full">
+                              {model.badge}
+                            </Badge>
+                          )}
+                        </HStack>
+                      </Box>
+                    </GridItem>
+                  ))}
+                </Grid>
+              </FormControl>
 
-                <Flex gap={4}>
-                  <Box flex={1}>
-                    <Text mb={2} fontWeight="medium">
-                      Modelo
-                    </Text>
-                    <Select
-                      value={assistantModel}
-                      onChange={(e) => setAssistantModel(e.target.value)}
-                    >
-                      <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
-                      <option value="gpt-4">GPT-4</option>
-                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                    </Select>
-                  </Box>
-
-                  <Box flex={1}>
-                    <Text mb={2} fontWeight="medium">
-                      Temperatura
-                    </Text>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="2"
-                      step="0.1"
-                      value={assistantTemperature}
-                      onChange={(e) => setAssistantTemperature(e.target.value)}
-                    />
-                  </Box>
-                </Flex>
-              </VStack>
-            )}
+              {/* Temperatura */}
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="medium">
+                  <HStack justify="space-between">
+                    <Text>Creatividad (Temperatura)</Text>
+                    <Badge colorScheme="purple" borderRadius="full">
+                      {assistantTemperature.toFixed(1)}
+                    </Badge>
+                  </HStack>
+                </FormLabel>
+                <Slider
+                  value={assistantTemperature}
+                  onChange={(v) => setAssistantTemperature(v)}
+                  min={0}
+                  max={2}
+                  step={0.1}
+                >
+                  <SliderTrack bg="gray.200" borderRadius="full">
+                    <SliderFilledTrack bg="purple.400" />
+                  </SliderTrack>
+                  <SliderThumb boxSize={5} />
+                </Slider>
+                <HStack justify="space-between" mt={1}>
+                  <Text fontSize="xs" color="gray.500">Preciso</Text>
+                  <Text fontSize="xs" color="gray.500">Creativo</Text>
+                </HStack>
+              </FormControl>
+            </VStack>
           </ModalBody>
 
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
+          <ModalFooter gap={3}>
+            <Button variant="ghost" onClick={onClose} borderRadius="xl">
               Cancelar
             </Button>
             <Button
-              colorScheme="blue"
-              onClick={createAssistantManual}
+              bgGradient="linear(to-r, purple.500, blue.500)"
+              color="white"
+              _hover={{ bgGradient: "linear(to-r, purple.600, blue.600)" }}
+              onClick={createAssistant}
               isLoading={loading}
               isDisabled={!assistantName || !assistantInstructions}
+              borderRadius="xl"
+              px={8}
             >
               Crear Asistente
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
-    </Container>
+    </Box>
   );
 }
