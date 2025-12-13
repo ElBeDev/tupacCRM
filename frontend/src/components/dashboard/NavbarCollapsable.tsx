@@ -20,7 +20,8 @@ import {
   useDisclosure,
 } from '@chakra-ui/react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/authStore';
 import {
   Home,
   MessageSquare,
@@ -35,6 +36,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
+  LogOut,
 } from 'lucide-react';
 
 interface NavLink {
@@ -50,7 +52,14 @@ interface NavSection {
 
 export default function NavbarCollapsable() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { clearAuth } = useAuthStore();
   const { isOpen: isExpanded, onToggle } = useDisclosure({ defaultIsOpen: true });
+
+  const handleLogout = () => {
+    clearAuth();
+    router.push('/login');
+  };
 
   const mainLinks: NavLink[] = [
     { name: 'Inicio', href: '/dashboard', icon: Home },
@@ -223,6 +232,20 @@ export default function NavbarCollapsable() {
               </Box>
             </Flex>
           </Link>
+
+          {/* Botón de Logout */}
+          <Button
+            leftIcon={<Icon as={LogOut} />}
+            onClick={handleLogout}
+            size="sm"
+            variant="ghost"
+            colorScheme="red"
+            w="full"
+            mt={2}
+            justifyContent="flex-start"
+          >
+            Cerrar Sesión
+          </Button>
         </Box>
       )}
 
@@ -230,10 +253,21 @@ export default function NavbarCollapsable() {
       {!isExpanded && (
         <Box borderTop="1px" borderColor="gray.200" p={2}>
           <Link href="/dashboard/account">
-            <Flex justify="center">
+            <Flex justify="center" mb={2}>
               <Avatar size="sm" name="Usuario" bg="brand.500" />
             </Flex>
           </Link>
+          <Button
+            onClick={handleLogout}
+            size="sm"
+            variant="ghost"
+            colorScheme="red"
+            w="full"
+            p={0}
+            minW="auto"
+          >
+            <Icon as={LogOut} boxSize={5} />
+          </Button>
         </Box>
       )}
     </Flex>
