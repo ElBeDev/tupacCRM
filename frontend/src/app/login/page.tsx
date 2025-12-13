@@ -42,22 +42,25 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Simulación de login para desarrollo
-      // En producción, esto haría una llamada real al backend
-      setTimeout(() => {
-        const mockUser = {
-          id: '1',
-          email: email,
-          name: 'Usuario Demo',
-          role: 'admin',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
-        };
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-        setAuth(mockUser, 'mock-access-token', 'mock-refresh-token');
-        router.push('/dashboard');
-      }, 1000);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al iniciar sesión');
+      }
+
+      setAuth(data.user, data.accessToken, data.refreshToken);
+      router.push('/dashboard');
     } catch (err: any) {
-      setError('Error al iniciar sesión');
+      setError(err.message || 'Error al iniciar sesión');
       setLoading(false);
     }
   };
