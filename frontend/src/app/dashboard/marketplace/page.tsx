@@ -22,9 +22,13 @@ import {
   Tabs,
   TabList,
   Tab,
+  useToast,
+  Spinner,
 } from '@chakra-ui/react';
-import { Search, Star, Download, Zap, MessageSquare, ShoppingCart } from 'lucide-react';
+import { Search, Star, Download, Zap, MessageSquare, ShoppingCart, Check } from 'lucide-react';
 import { useState } from 'react';
+import api from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 interface MarketplaceItem {
   id: string;
@@ -110,11 +114,48 @@ const mockItems: MarketplaceItem[] = [
 export default function MarketplacePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [installingId, setInstallingId] = useState<string | null>(null);
+  const [installedIds, setInstalledIds] = useState<string[]>([]);
+  const toast = useToast();
+  const router = useRouter();
 
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
 
   const categories = ['Todos', 'Ventas', 'Soporte', 'Marketing', 'Análisis', 'Utilidades', 'Productividad'];
+
+  const handleInstall = async (item: MarketplaceItem) => {
+    if (item.isPremium) {
+      toast({
+        title: 'Próximamente',
+        description: 'Las compras estarán disponibles pronto.',
+        status: 'info',
+        duration: 3000,
+      });
+      return;
+    }
+
+    setInstallingId(item.id);
+    try {
+      await api.post(`/api/assistants/marketplace/install/${item.id}`);
+      setInstalledIds([...installedIds, item.id]);
+      toast({
+        title: '¡Instalado!',
+        description: `${item.name} se ha agregado a tus asistentes.`,
+        status: 'success',
+        duration: 3000,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error || 'No se pudo instalar el asistente',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setInstallingId(null);
+    }
+  };
 
   return (
     <Box bg={bgColor} minH="100vh" pl={{ base: 0, md: '224px' }} pt={4}>
@@ -243,10 +284,26 @@ export default function MarketplacePage() {
                       </Text>
                       <Button
                         size="sm"
-                        colorScheme="brand"
-                        leftIcon={<Icon as={item.price === 0 ? Download : ShoppingCart} />}
+                        colorScheme={installedIds.includes(item.id) ? 'green' : 'brand'}
+                        leftIcon={
+                          installingId === item.id ? (
+                            <Spinner size="xs" />
+                          ) : installedIds.includes(item.id) ? (
+                            <Icon as={Check} />
+                          ) : (
+                            <Icon as={item.price === 0 ? Download : ShoppingCart} />
+                          )
+                        }
+                        onClick={() => handleInstall(item)}
+                        isDisabled={installingId === item.id || installedIds.includes(item.id)}
                       >
-                        {item.price === 0 ? 'Instalar' : 'Comprar'}
+                        {installedIds.includes(item.id)
+                          ? 'Instalado'
+                          : installingId === item.id
+                          ? 'Instalando...'
+                          : item.price === 0
+                          ? 'Instalar'
+                          : 'Comprar'}
                       </Button>
                     </HStack>
                   </VStack>

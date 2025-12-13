@@ -261,6 +261,22 @@ model AssistantTestMessage {
   @@map("assistant_test_messages")
 }
 
+// Smart Tag Model (Etiquetas inteligentes para clasificar leads)
+model SmartTag {
+  id            String    @id @default(uuid())
+  name          String
+  description   String?   @db.Text
+  color         String    @default("#9D39FE")
+  icon          String?   // Nombre del icono (opcional)
+  conditions    Json?     // Condiciones para aplicar automáticamente {"field": "score", "operator": ">=", "value": 80}
+  isAutomatic   Boolean   @default(false) // Se aplica automáticamente según condiciones
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@map("smart_tags")
+}
+
 // Order Model (Pedidos de mayorista)
 model Order {
   id              String      @id @default(uuid())

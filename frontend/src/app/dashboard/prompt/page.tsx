@@ -135,6 +135,8 @@ const AVAILABLE_MODELS = [
 export default function AssistantsPage() {
   const [message, setMessage] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose } = useDisclosure();
   const toast = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +147,13 @@ export default function AssistantsPage() {
   const [testMessages, setTestMessages] = useState<TestMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [testingLoading, setTestingLoading] = useState(false);
+  
+  // Estados para edición de asistente
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editInstructions, setEditInstructions] = useState('');
+  const [editModel, setEditModel] = useState('gpt-4o');
+  const [editTemperature, setEditTemperature] = useState(0.7);
   
   // Estados para imágenes
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -496,6 +505,129 @@ export default function AssistantsPage() {
     }
   };
 
+  // Abrir modal de edición
+  const openEditModal = () => {
+    if (!selectedAssistant) return;
+    setEditName(selectedAssistant.name);
+    setEditDescription(selectedAssistant.description || '');
+    setEditInstructions(selectedAssistant.instructions);
+    setEditModel(selectedAssistant.model);
+    setEditTemperature(selectedAssistant.temperature);
+    onEditOpen();
+  };
+
+  // Actualizar asistente
+  const updateAssistant = async () => {
+    if (!selectedAssistant || !editName || !editInstructions) {
+      toast({
+        title: 'Error',
+        description: 'El nombre y las instrucciones son requeridos',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/assistants/${selectedAssistant.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: editName,
+            description: editDescription,
+            instructions: editInstructions,
+            model: editModel,
+            temperature: editTemperature,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update assistant');
+      }
+
+      const updatedAssistant = await response.json();
+
+      toast({
+        title: '¡Asistente Actualizado!',
+        description: `"${updatedAssistant.name}" ha sido actualizado`,
+        status: 'success',
+        duration: 3000,
+      });
+
+      await loadAssistants();
+      setSelectedAssistant(updatedAssistant);
+      onEditClose();
+    } catch (error: any) {
+      console.error('Error updating assistant:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo actualizar el asistente',
+        status: 'error',
+        duration: 5000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Duplicar asistente
+  const duplicateAssistant = async (assistant: Assistant) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assistants`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: `${assistant.name} (copia)`,
+          description: assistant.description,
+          instructions: assistant.instructions,
+          model: assistant.model,
+          temperature: assistant.temperature,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to duplicate assistant');
+      }
+
+      const newAssistant = await response.json();
+
+      toast({
+        title: '¡Asistente Duplicado!',
+        description: `"${newAssistant.name}" creado`,
+        status: 'success',
+        duration: 3000,
+      });
+
+      await loadAssistants();
+      setSelectedAssistant(newAssistant);
+    } catch (error: any) {
+      console.error('Error duplicating assistant:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo duplicar el asistente',
+        status: 'error',
+        duration: 5000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Box minH="100vh" bg="gray.50">
       {/* Header */}
@@ -636,6 +768,31 @@ export default function AssistantsPage() {
                           />
                           <MenuList shadow="lg" borderRadius="xl">
                             <MenuItem 
+                              icon={<FiSettings />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAssistant(assistant);
+                                setEditName(assistant.name);
+                                setEditDescription(assistant.description || '');
+                                setEditInstructions(assistant.instructions);
+                                setEditModel(assistant.model);
+                                setEditTemperature(assistant.temperature);
+                                onEditOpen();
+                              }}
+                            >
+                              Editar
+                            </MenuItem>
+                            <MenuItem 
+                              icon={<FiRefreshCw />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                duplicateAssistant(assistant);
+                              }}
+                            >
+                              Duplicar
+                            </MenuItem>
+                            <Divider my={1} />
+                            <MenuItem 
                               icon={<FiTrash2 />} 
                               color="red.500"
                               onClick={(e) => {
@@ -705,12 +862,13 @@ export default function AssistantsPage() {
                         onClick={clearMessages}
                       />
                     </Tooltip>
-                    <Tooltip label="Configuración">
+                    <Tooltip label="Configuración del asistente">
                       <IconButton
                         aria-label="Settings"
                         icon={<FiSettings />}
                         variant="ghost"
                         size="sm"
+                        onClick={openEditModal}
                       />
                     </Tooltip>
                   </HStack>
@@ -1075,6 +1233,158 @@ export default function AssistantsPage() {
               px={8}
             >
               Crear Asistente
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Modal de Edición */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose} size="2xl" isCentered>
+        <ModalOverlay bg="blackAlpha.600" backdropFilter="blur(4px)" />
+        <ModalContent borderRadius="2xl" mx={4}>
+          <ModalHeader>
+            <HStack spacing={3}>
+              <Box
+                p={2}
+                bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                borderRadius="xl"
+              >
+                <Icon as={FiSettings} boxSize={5} color="white" />
+              </Box>
+              <Box>
+                <Text>Editar Asistente</Text>
+                <Text fontSize="sm" fontWeight="normal" color="gray.500">
+                  Modifica la configuración de tu asistente
+                </Text>
+              </Box>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          
+          <ModalBody pb={6}>
+            <VStack spacing={5} align="stretch">
+              {/* Nombre */}
+              <FormControl isRequired>
+                <FormLabel fontSize="sm" fontWeight="medium">Nombre</FormLabel>
+                <Input
+                  placeholder="Ej: Asistente de Ventas"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  borderRadius="xl"
+                  size="lg"
+                />
+              </FormControl>
+
+              {/* Descripción */}
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="medium">Descripción</FormLabel>
+                <Input
+                  placeholder="Breve descripción del asistente"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  borderRadius="xl"
+                />
+              </FormControl>
+
+              {/* Instrucciones */}
+              <FormControl isRequired>
+                <FormLabel fontSize="sm" fontWeight="medium">Instrucciones del Sistema</FormLabel>
+                <Textarea
+                  placeholder="Define cómo debe comportarse el asistente..."
+                  value={editInstructions}
+                  onChange={(e) => setEditInstructions(e.target.value)}
+                  rows={5}
+                  borderRadius="xl"
+                />
+                <FormHelperText>
+                  Sé específico sobre el rol, tono y tipo de respuestas que esperas
+                </FormHelperText>
+              </FormControl>
+
+              {/* Modelo */}
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="medium">Modelo</FormLabel>
+                <Grid templateColumns="repeat(2, 1fr)" gap={3}>
+                  {AVAILABLE_MODELS.map((model) => (
+                    <GridItem key={model.id}>
+                      <Box
+                        p={3}
+                        bg={editModel === model.id ? 'purple.50' : 'gray.50'}
+                        borderRadius="xl"
+                        border="2px"
+                        borderColor={editModel === model.id ? 'purple.400' : 'transparent'}
+                        cursor="pointer"
+                        onClick={() => setEditModel(model.id)}
+                        transition="all 0.2s"
+                        _hover={{ bg: editModel === model.id ? 'purple.50' : 'gray.100' }}
+                      >
+                        <HStack justify="space-between">
+                          <VStack align="start" spacing={0}>
+                            <HStack>
+                              <Text fontWeight="medium" fontSize="sm">{model.name}</Text>
+                              {model.vision && (
+                                <Icon as={FiEye} color="blue.400" boxSize={3} />
+                              )}
+                            </HStack>
+                            <Text fontSize="xs" color="gray.500">{model.description}</Text>
+                          </VStack>
+                          {model.badge && (
+                            <Badge colorScheme={model.badgeColor || 'gray'} fontSize="2xs" borderRadius="full">
+                              {model.badge}
+                            </Badge>
+                          )}
+                        </HStack>
+                      </Box>
+                    </GridItem>
+                  ))}
+                </Grid>
+              </FormControl>
+
+              {/* Temperatura */}
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="medium">
+                  <HStack justify="space-between">
+                    <Text>Creatividad (Temperatura)</Text>
+                    <Badge colorScheme="purple" borderRadius="full">
+                      {editTemperature.toFixed(1)}
+                    </Badge>
+                  </HStack>
+                </FormLabel>
+                <Slider
+                  value={editTemperature}
+                  onChange={(v) => setEditTemperature(v)}
+                  min={0}
+                  max={2}
+                  step={0.1}
+                >
+                  <SliderTrack bg="gray.200" borderRadius="full">
+                    <SliderFilledTrack bg="purple.400" />
+                  </SliderTrack>
+                  <SliderThumb boxSize={5} />
+                </Slider>
+                <HStack justify="space-between" mt={1}>
+                  <Text fontSize="xs" color="gray.500">Preciso</Text>
+                  <Text fontSize="xs" color="gray.500">Creativo</Text>
+                </HStack>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter gap={3}>
+            <Button variant="ghost" onClick={onEditClose} borderRadius="xl">
+              Cancelar
+            </Button>
+            <Button
+              bgGradient="linear(to-r, purple.500, blue.500)"
+              color="white"
+              _hover={{ bgGradient: "linear(to-r, purple.600, blue.600)" }}
+              onClick={updateAssistant}
+              isLoading={loading}
+              isDisabled={!editName || !editInstructions}
+              borderRadius="xl"
+              px={8}
+            >
+              Guardar Cambios
             </Button>
           </ModalFooter>
         </ModalContent>
