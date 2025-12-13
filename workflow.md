@@ -35,6 +35,20 @@ Crear un CRM completo basado en IA similar a Prometheo, pero open-source y auto-
   - [x] Configuración completa de IA (modelo, temperatura, tokens, prompts)
   - [x] Sistema de testing de IA integrado
 
+- [x] **Asistentes IA con OpenAI Assistants API** ✨ NUEVO (13 Dic 2024)
+  - [x] Creación de asistentes personalizados en OpenAI
+  - [x] Integración completa con Assistants API (threads, messages, runs)
+  - [x] Soporte para GPT-4o, GPT-4o-mini, GPT-4 Turbo y GPT-3.5 Turbo
+  - [x] **GPT-4o Vision** - Análisis y comprensión de imágenes
+  - [x] UI profesional con drag & drop de imágenes
+  - [x] Vista previa de imágenes antes de enviar
+  - [x] Selector visual de modelos con badges (Recomendado, Económico, Vision)
+  - [x] Slider de temperatura para ajustar creatividad
+  - [x] Chat en tiempo real con avatares y burbujas estilizadas
+  - [x] Historial de conversaciones persistente
+  - [x] CRUD completo de asistentes (crear, leer, actualizar, eliminar)
+  - [x] Sincronización con base de datos y OpenAI
+
 - [x] **Seguimientos Inteligentes**
   - [x] Actualización automática de contactos según conversaciones
   - [x] Detección de urgencia en tiempo real
@@ -1065,7 +1079,78 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 
 **Nota**: Este es un documento vivo que se irá actualizando conforme avance el proyecto. Cada feature completada se marcará con ✅.
 
-**Última actualización**: 5 de Diciembre, 2024
+**Última actualización**: 13 de Diciembre, 2024
+
+---
+
+## 📅 Sesión 13 de Diciembre, 2024 - Asistentes IA con GPT-4o Vision
+
+### Resumen de la Sesión
+Se implementó un sistema completo de Asistentes IA usando la OpenAI Assistants API, con una UI profesional que soporta imágenes y GPT-4o Vision.
+
+### Problemas Resueltos
+1. **Autenticación Mock → Real**: El login usaba tokens mock que el backend rechazaba. Se cambió a autenticación real con JWT.
+2. **Usuario Demo no existía**: Se creó el usuario `demo@tupaccrm.com` en la base de datos.
+3. **OpenAI API Key faltante**: Se configuró la variable `OPENAI_API_KEY` en el docker-compose usando archivo `.env`.
+4. **Botón de logout faltante**: Se agregó botón de cerrar sesión en el navbar lateral.
+
+### Nuevas Características Implementadas
+
+**Frontend - UI de Asistentes (`/dashboard/prompt`):**
+- ✅ Header profesional con gradiente púrpura/azul
+- ✅ Sidebar con lista de asistentes y badges de modelo
+- ✅ Selector visual de modelos:
+  - GPT-4o (Recomendado, con Vision)
+  - GPT-4o Mini (Económico, con Vision)
+  - GPT-4 Turbo (con Vision)
+  - GPT-3.5 Turbo (sin Vision)
+- ✅ Soporte para imágenes con drag & drop
+- ✅ Vista previa de imágenes antes de enviar (hasta 5)
+- ✅ Botón de adjuntar imagen (solo para modelos con Vision)
+- ✅ Chat moderno con avatares y burbujas estilizadas
+- ✅ Slider de temperatura (0-2) para ajustar creatividad
+- ✅ Modal de creación con formulario completo
+- ✅ Animaciones y transiciones suaves
+- ✅ Auto-scroll a nuevos mensajes
+
+**Backend - Asistentes API:**
+- ✅ Integración con OpenAI Assistants API
+- ✅ Creación de asistentes en OpenAI (POST /api/assistants)
+- ✅ Threads y mensajes persistentes
+- ✅ Runs para procesar mensajes
+- ✅ Sincronización DB ↔ OpenAI
+
+**Autenticación:**
+- ✅ Login real con backend (POST /api/auth/login)
+- ✅ JWT tokens válidos (accessToken + refreshToken)
+- ✅ Botón de logout en navbar (`NavbarCollapsable.tsx`)
+
+### Archivos Modificados/Creados
+```
+frontend/src/app/dashboard/prompt/page.tsx  # UI completa de asistentes
+frontend/src/app/login/page.tsx             # Autenticación real
+frontend/src/components/dashboard/NavbarCollapsable.tsx  # Botón logout
+docker-compose.yml                          # OPENAI_API_KEY variable
+.env (en VPS)                               # API key real de OpenAI
+```
+
+### Comandos de Deploy Usados
+```bash
+# Deploy frontend
+rsync -avz --progress frontend/src/app/dashboard/prompt/page.tsx root@72.62.11.244:/var/www/tupaccrm/frontend/src/app/dashboard/prompt/
+ssh root@72.62.11.244 "docker restart tupaccrm-frontend"
+
+# Configurar OpenAI Key
+ssh root@72.62.11.244 "echo 'OPENAI_API_KEY=sk-...' > /var/www/tupaccrm/.env"
+ssh root@72.62.11.244 "cd /var/www/tupaccrm && docker-compose down backend && docker-compose up -d backend"
+
+# Crear usuario demo
+docker exec tupaccrm-backend node -e "..." # Script de creación de usuario
+```
+
+### URLs
+- **Producción**: https://srv1190739.hstgr.cloud/dashboard/prompt
+- **Login**: demo@tupaccrm.com / demo123
 
 ---
 
