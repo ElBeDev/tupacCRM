@@ -92,14 +92,6 @@ export default function TestingPage() {
   const [message, setMessage] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
-
-  const handleOpenModal = () => {
-    console.log('🔵 Opening modal...');
-    console.log('🔵 isOpen:', isOpen);
-    alert('Botón clickeado!');
-    onOpen();
-    console.log('🔵 After onOpen, isOpen should be true');
-  };
   
   // Estados para asistentes
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -370,32 +362,11 @@ export default function TestingPage() {
 
   return (
     <Container maxW="container.xl" py={8}>
-      {/* BOTÓN DE PRUEBA */}
-      <button 
-        onClick={() => {
-          alert('BOTÓN HTML FUNCIONA!');
-          handleOpenModal();
-        }}
-        style={{
-          padding: '10px 20px',
-          backgroundColor: 'red',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          marginBottom: '20px',
-          fontSize: '16px',
-          fontWeight: 'bold'
-        }}
-      >
-        PRUEBA - HACER CLICK AQUÍ
-      </button>
-      
       <VStack spacing={6} align="stretch">
         {/* Header */}
         <Flex justify="space-between" align="center">
-          <Heading size="lg">Pruebas de Asistentes</Heading>
-          <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleOpenModal}>
+          <Heading size="lg">Asistentes</Heading>
+          <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={onOpen}>
             Crear Asistente
           </Button>
         </Flex>
