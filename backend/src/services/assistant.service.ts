@@ -169,10 +169,63 @@ export class AssistantService {
       throw new Error('Assistant not found');
     }
 
+    // Intentar parsear el mensaje por si contiene imágenes
+    let messageContent: any = message;
+    let hasImages = false;
+    
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed.images && Array.isArray(parsed.images)) {
+        hasImages = true;
+        messageContent = parsed;
+      }
+    } catch {
+      // Es un mensaje de texto simple
+    }
+
+    // Guardar mensaje del usuario
+    const displayMessage = hasImages ? messageContent.text || 'Imagen enviada' : message;
     await prisma.assistantTestMessage.create({
-      data: { assistantId, role: 'user', content: message },
+      data: { assistantId, role: 'user', content: displayMessage },
     });
 
+    // Si hay imágenes, usar Chat Completions API con Vision
+    if (hasImages && (assistant.model.includes('gpt-4o') || assistant.model.includes('gpt-4-turbo'))) {
+      const content: any[] = [];
+      
+      if (messageContent.text) {
+        content.push({ type: 'text', text: messageContent.text });
+      }
+      
+      for (const imageData of messageContent.images) {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: imageData,
+            detail: 'high'
+          }
+        });
+      }
+
+      const visionResponse = await openai.chat.completions.create({
+        model: assistant.model,
+        messages: [
+          { role: 'system', content: assistant.instructions },
+          { role: 'user', content }
+        ],
+        max_tokens: 4096,
+      });
+
+      const responseText = visionResponse.choices[0].message.content || 'Sin respuesta';
+
+      await prisma.assistantTestMessage.create({
+        data: { assistantId, role: 'assistant', content: responseText },
+      });
+
+      return { response: responseText };
+    }
+
+    // Sin imágenes, usar Assistants API normal
     const thread = await openai.beta.threads.create();
     await openai.beta.threads.messages.create(thread.id, {
       role: 'user',

@@ -370,17 +370,32 @@ export default function TestingPage() {
 
   return (
     <Container maxW="container.xl" py={8}>
+      {/* BOTÓN DE PRUEBA */}
+      <button 
+        onClick={() => {
+          alert('BOTÓN HTML FUNCIONA!');
+          handleOpenModal();
+        }}
+        style={{
+          padding: '10px 20px',
+          backgroundColor: 'red',
+          color: 'white',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          marginBottom: '20px',
+          fontSize: '16px',
+          fontWeight: 'bold'
+        }}
+      >
+        PRUEBA - HACER CLICK AQUÍ
+      </button>
+      
       <VStack spacing={6} align="stretch">
         {/* Header */}
-        <Flex justify="space-between" align="center" position="relative" zIndex={10}>
+        <Flex justify="space-between" align="center">
           <Heading size="lg">Pruebas de Asistentes</Heading>
-          <Button 
-            leftIcon={<FiPlus />} 
-            colorScheme="blue" 
-            onClick={handleOpenModal}
-            zIndex={100}
-            position="relative"
-          >
+          <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleOpenModal}>
             Crear Asistente
           </Button>
         </Flex>
