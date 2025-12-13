@@ -43,6 +43,7 @@ services:
       PORT: 3001
       DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/tupaccrm
       REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
       - ./backend:/app
       - /app/node_modules
