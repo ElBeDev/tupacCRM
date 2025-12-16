@@ -758,15 +758,18 @@ export default function AssistantsPage() {
                           </Box>
                         </HStack>
                         
-                        <Menu>
+                        <Menu isLazy placement="bottom-end">
                           <MenuButton
                             as={IconButton}
                             icon={<FiMoreVertical />}
                             variant="ghost"
-                            size="xs"
+                            size="sm"
+                            aria-label="Opciones"
+                            borderRadius="lg"
+                            _hover={{ bg: 'gray.100' }}
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <MenuList shadow="lg" borderRadius="xl">
+                          <MenuList shadow="xl" borderRadius="xl" zIndex={1000} minW="150px">
                             <MenuItem 
                               icon={<FiSettings />}
                               onClick={(e) => {

@@ -474,7 +474,7 @@ export default function SmartTagsPage() {
                       </Box>
                     </HStack>
 
-                    <Menu>
+                    <Menu isLazy placement="bottom-end">
                       <MenuButton
                         as={IconButton}
                         icon={<FiMoreVertical />}
@@ -484,7 +484,7 @@ export default function SmartTagsPage() {
                         borderRadius="lg"
                         _hover={{ bg: 'gray.100' }}
                       />
-                      <MenuList shadow="lg" borderRadius="xl">
+                      <MenuList shadow="xl" borderRadius="xl" zIndex={1000} minW="150px">
                         <MenuItem icon={<FiEdit2 />} onClick={() => openEditModal(tag)}>
                           Editar
                         </MenuItem>

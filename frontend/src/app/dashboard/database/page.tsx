@@ -600,7 +600,7 @@ export default function DatabasePage() {
                       </Wrap>
                     </Td>
                     <Td>
-                      <Menu>
+                      <Menu isLazy placement="bottom-end">
                         <MenuButton
                           as={IconButton}
                           icon={<FiMoreVertical />}
@@ -610,7 +610,7 @@ export default function DatabasePage() {
                           borderRadius="lg"
                           _hover={{ bg: 'gray.100' }}
                         />
-                        <MenuList shadow="lg" borderRadius="xl">
+                        <MenuList shadow="xl" borderRadius="xl" zIndex={1000} minW="150px">
                           <MenuItem
                             icon={<FiMessageSquare />}
                             onClick={() =>
