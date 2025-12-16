@@ -190,6 +190,44 @@ router.delete('/:id/messages', authenticate, async (req, res) => {
   }
 });
 
+// Sincronizar asistente con OpenAI (verificar y actualizar configuración)
+router.post('/:id/sync', authenticate, async (req, res) => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+
+    const result = await assistantService.syncAssistant(id, userId);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error syncing assistant:', error);
+    
+    if (error.message === 'Assistant not found') {
+      return res.status(404).json({ error: 'Assistant not found' });
+    }
+    
+    res.status(500).json({ error: error.message || 'Failed to sync assistant' });
+  }
+});
+
+// Obtener configuración actual del asistente en OpenAI
+router.get('/:id/openai-config', authenticate, async (req, res) => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+
+    const config = await assistantService.getOpenAIConfig(id, userId);
+    res.json(config);
+  } catch (error: any) {
+    console.error('Error getting OpenAI config:', error);
+    
+    if (error.message === 'Assistant not found') {
+      return res.status(404).json({ error: 'Assistant not found' });
+    }
+    
+    res.status(500).json({ error: error.message || 'Failed to get OpenAI config' });
+  }
+});
+
 // Templates del Marketplace
 const MARKETPLACE_TEMPLATES: Record<string, { name: string; description: string; instructions: string; model: string; temperature: number }> = {
   '1': {

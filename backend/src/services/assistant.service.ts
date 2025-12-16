@@ -11,6 +11,7 @@ export interface CreateAssistantDTO {
   instructions: string;
   model?: string;
   temperature?: number;
+  top_p?: number;
   tools?: any[];
   fileIds?: string[];
 }
@@ -20,12 +21,22 @@ export class AssistantService {
     if (!openai) throw new Error('OpenAI API key not configured');
     
     try {
+      // Crear el asistente en OpenAI con todas las configuraciones
       const openaiAssistant = await openai.beta.assistants.create({
         name: data.name,
-        description: data.description,
+        description: data.description || undefined,
         instructions: data.instructions,
         model: data.model || 'gpt-4-turbo-preview',
+        temperature: data.temperature ?? 0.7,
+        top_p: data.top_p ?? 1,
         tools: (data.tools || []) as any,
+      });
+
+      console.log('✅ OpenAI Assistant created:', openaiAssistant.id, {
+        name: openaiAssistant.name,
+        model: openaiAssistant.model,
+        temperature: openaiAssistant.temperature,
+        instructions: openaiAssistant.instructions?.substring(0, 100) + '...'
       });
 
       const assistant = await prisma.assistant.create({
@@ -111,14 +122,20 @@ export class AssistantService {
     
     if (!assistant) throw new Error('Assistant not found');
     
+    // Actualizar en OpenAI con todas las configuraciones
     if (assistant.openaiId) {
-      await openai.beta.assistants.update(assistant.openaiId, {
-        name: data.name,
-        description: data.description,
-        instructions: data.instructions,
-        model: data.model,
-        tools: (data.tools || []) as any,
-      });
+      const updateData: any = {};
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.description !== undefined) updateData.description = data.description;
+      if (data.instructions !== undefined) updateData.instructions = data.instructions;
+      if (data.model !== undefined) updateData.model = data.model;
+      if (data.temperature !== undefined) updateData.temperature = data.temperature;
+      if (data.top_p !== undefined) updateData.top_p = data.top_p;
+      if (data.tools !== undefined) updateData.tools = data.tools as any;
+
+      await openai.beta.assistants.update(assistant.openaiId, updateData);
+      
+      console.log('✅ OpenAI Assistant updated:', assistant.openaiId, updateData);
     }
     
     const updated = await prisma.assistant.update({
@@ -213,6 +230,7 @@ export class AssistantService {
           { role: 'system', content: assistant.instructions },
           { role: 'user', content }
         ],
+        temperature: assistant.temperature || 0.7,
         max_tokens: 4096,
       });
 
@@ -232,9 +250,17 @@ export class AssistantService {
       content: message,
     });
 
-    const run = await openai.beta.threads.runs.create(thread.id, {
+    // Crear run con temperature override si está definido en el asistente
+    const runOptions: any = {
       assistant_id: assistant.openaiId,
-    });
+    };
+    
+    // El run puede hacer override del temperature configurado en el asistente
+    if (assistant.temperature !== null && assistant.temperature !== undefined) {
+      runOptions.temperature = assistant.temperature;
+    }
+
+    const run = await openai.beta.threads.runs.create(thread.id, runOptions);
 
     let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
     
@@ -294,6 +320,104 @@ export class AssistantService {
     });
     
     return { success: true };
+  }
+
+  // Sincronizar asistente local con OpenAI (obtener config actual de OpenAI)
+  async syncAssistant(id: string, userId: string) {
+    const assistant = await prisma.assistant.findFirst({
+      where: { id, userId },
+    });
+
+    if (!assistant) throw new Error('Assistant not found');
+    if (!assistant.openaiId) throw new Error('Assistant not synced with OpenAI');
+
+    try {
+      // Obtener el asistente desde OpenAI
+      const openaiAssistant = await openai.beta.assistants.retrieve(assistant.openaiId);
+      
+      console.log('[Sync] OpenAI Assistant config:', {
+        id: openaiAssistant.id,
+        name: openaiAssistant.name,
+        model: openaiAssistant.model,
+        temperature: openaiAssistant.temperature,
+        instructions: openaiAssistant.instructions?.substring(0, 100) + '...',
+      });
+
+      // Verificar si hay diferencias
+      const differences: string[] = [];
+      
+      if (openaiAssistant.name !== assistant.name) {
+        differences.push(`name: DB="${assistant.name}" vs OpenAI="${openaiAssistant.name}"`);
+      }
+      if (openaiAssistant.model !== assistant.model) {
+        differences.push(`model: DB="${assistant.model}" vs OpenAI="${openaiAssistant.model}"`);
+      }
+      if (openaiAssistant.instructions !== assistant.instructions) {
+        differences.push(`instructions: different`);
+      }
+      if (openaiAssistant.temperature !== assistant.temperature) {
+        differences.push(`temperature: DB=${assistant.temperature} vs OpenAI=${openaiAssistant.temperature}`);
+      }
+
+      // Si hay diferencias, actualizar OpenAI con los valores de la DB
+      if (differences.length > 0) {
+        console.log('[Sync] Differences found, updating OpenAI:', differences);
+        
+        const updateParams: any = {
+          name: assistant.name,
+          description: assistant.description || '',
+          instructions: assistant.instructions,
+          model: assistant.model,
+        };
+
+        if (assistant.temperature !== null && assistant.temperature !== undefined) {
+          updateParams.temperature = assistant.temperature;
+        }
+
+        await openai.beta.assistants.update(assistant.openaiId, updateParams);
+        console.log('[Sync] OpenAI updated successfully');
+      }
+
+      return {
+        synced: true,
+        differences: differences.length > 0 ? differences : null,
+        wasUpdated: differences.length > 0,
+        openaiConfig: {
+          id: openaiAssistant.id,
+          name: openaiAssistant.name,
+          model: openaiAssistant.model,
+          temperature: openaiAssistant.temperature,
+          hasInstructions: !!openaiAssistant.instructions,
+        }
+      };
+    } catch (error: any) {
+      console.error('[Sync] Error syncing assistant:', error.message);
+      throw new Error(`Failed to sync with OpenAI: ${error.message}`);
+    }
+  }
+
+  // Obtener config actual del asistente en OpenAI
+  async getOpenAIConfig(id: string, userId: string) {
+    const assistant = await prisma.assistant.findFirst({
+      where: { id, userId },
+    });
+
+    if (!assistant) throw new Error('Assistant not found');
+    if (!assistant.openaiId) throw new Error('Assistant not synced with OpenAI');
+
+    const openaiAssistant = await openai.beta.assistants.retrieve(assistant.openaiId);
+    
+    return {
+      openaiId: openaiAssistant.id,
+      name: openaiAssistant.name,
+      description: openaiAssistant.description,
+      model: openaiAssistant.model,
+      instructions: openaiAssistant.instructions,
+      temperature: openaiAssistant.temperature,
+      top_p: openaiAssistant.top_p,
+      tools: openaiAssistant.tools,
+      created_at: openaiAssistant.created_at,
+    };
   }
 }
 
