@@ -16,7 +16,7 @@ export default function SheetsPage() {
     setResult(null);
 
     try {
-      const response = await api.post('/api/google/sheets/quick-export', {
+      const response = await api.post('/google/sheets/quick-export', {
         title: `TupacCRM - Contactos ${new Date().toLocaleDateString()}`,
       });
 
@@ -48,7 +48,7 @@ export default function SheetsPage() {
     setResult(null);
 
     try {
-      const response = await api.post('/api/google/sheets/export', {
+      const response = await api.post('/google/sheets/export', {
         spreadsheetId: spreadsheetId.trim(),
         sheetName,
       });
@@ -76,7 +76,7 @@ export default function SheetsPage() {
     setResult(null);
 
     try {
-      const response = await api.post('/api/google/sheets/import', {
+      const response = await api.post('/google/sheets/import', {
         spreadsheetId: spreadsheetId.trim(),
         sheetName,
       });

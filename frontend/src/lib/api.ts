@@ -1,9 +1,13 @@
 import axios from 'axios';
 
+// La URL base del API - en producción apunta al backend
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Asegurar que la URL base termine con /api
+const baseURL = API_URL.endsWith('/api') ? API_URL : `${API_URL}/api`;
+
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -38,7 +42,7 @@ api.interceptors.response.use(
           throw new Error('No refresh token');
         }
 
-        const response = await axios.post(`${API_URL}/api/auth/refresh`, {
+        const response = await axios.post(`${baseURL}/auth/refresh`, {
           refreshToken,
         });
 

@@ -93,7 +93,7 @@ export default function ConfigurationPage() {
 
   const checkWhatsAppStatus = async () => {
     try {
-      const response = await api.get('/api/whatsapp/status');
+      const response = await api.get('/whatsapp/status');
       setWhatsappConnected(response.data.connected);
       if (response.data.phoneNumber) {
         setPhoneNumber(response.data.phoneNumber);
@@ -108,7 +108,7 @@ export default function ConfigurationPage() {
     setQrCode(null);
     onOpen();
     try {
-      await api.post('/api/whatsapp/connect');
+      await api.post('/whatsapp/connect');
       // El QR se recibirá vía Socket.IO
     } catch (error) {
       console.error('Error connecting WhatsApp:', error);
@@ -119,7 +119,7 @@ export default function ConfigurationPage() {
 
   const handleWhatsAppDisconnect = async () => {
     try {
-      await api.post('/api/whatsapp/disconnect');
+      await api.post('/whatsapp/disconnect');
       setWhatsappConnected(false);
       setQrCode(null);
       setPhoneNumber(null);

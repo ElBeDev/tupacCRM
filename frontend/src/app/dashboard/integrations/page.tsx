@@ -31,15 +31,15 @@ export default function IntegrationsPage() {
   const checkStatus = async () => {
     try {
       // Check Google status
-      const googleResponse = await api.get('/api/google/status');
+      const googleResponse = await api.get('/google/status');
       setGoogleStatus(googleResponse.data);
 
       // Check AI status
-      const aiStatusResponse = await api.get('/api/ai/status');
+      const aiStatusResponse = await api.get('/ai/status');
       setAiConnected(aiStatusResponse.data.connected);
 
       // Get AI config
-      const aiConfigResponse = await api.get('/api/ai/config');
+      const aiConfigResponse = await api.get('/ai/config');
       if (aiConfigResponse.data && aiConfigResponse.data.id) {
         setAiConfig(aiConfigResponse.data);
       }
@@ -52,7 +52,7 @@ export default function IntegrationsPage() {
 
   const handleConnect = async () => {
     try {
-      const response = await api.get('/api/google/url');
+      const response = await api.get('/google/url');
       window.location.href = response.data.url;
     } catch (error) {
       console.error('Error connecting Google:', error);
@@ -66,7 +66,7 @@ export default function IntegrationsPage() {
     }
 
     try {
-      await api.post('/api/google/disconnect');
+      await api.post('/google/disconnect');
       await checkStatus();
       alert('Cuenta de Google desconectada');
     } catch (error) {
@@ -77,7 +77,7 @@ export default function IntegrationsPage() {
 
   const handleRefresh = async () => {
     try {
-      await api.post('/api/google/refresh');
+      await api.post('/google/refresh');
       await checkStatus();
       alert('Tokens actualizados correctamente');
     } catch (error) {

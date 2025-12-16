@@ -16,7 +16,7 @@ export default function WhatsAppPage() {
   // Función para obtener el QR como imagen
   const fetchQrImage = useCallback(async (qr: string) => {
     try {
-      const response = await api.get('/api/whatsapp/qr');
+      const response = await api.get('/whatsapp/qr');
       if (response.data.qrImage) {
         setQrImage(response.data.qrImage);
       }
@@ -101,7 +101,7 @@ export default function WhatsAppPage() {
 
   const checkStatus = async () => {
     try {
-      const response = await api.get('/api/whatsapp/status');
+      const response = await api.get('/whatsapp/status');
       setConnected(response.data.connected);
       if (response.data.qrCode) {
         setQrCode(response.data.qrCode);
@@ -115,7 +115,7 @@ export default function WhatsAppPage() {
   const handleConnect = async () => {
     setLoading(true);
     try {
-      await api.post('/api/whatsapp/connect');
+      await api.post('/whatsapp/connect');
       // El QR se recibirá vía Socket.IO
     } catch (error) {
       console.error('Error connecting:', error);
@@ -125,7 +125,7 @@ export default function WhatsAppPage() {
 
   const handleDisconnect = async () => {
     try {
-      await api.post('/api/whatsapp/disconnect');
+      await api.post('/whatsapp/disconnect');
       setConnected(false);
       setQrCode(null);
       setPhoneNumber(null);

@@ -99,7 +99,7 @@ export default function ContactsPage() {
 
   const fetchContacts = async () => {
     try {
-      const response = await api.get('/api/contacts');
+      const response = await api.get('/contacts');
       setContacts(response.data);
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -111,7 +111,7 @@ export default function ContactsPage() {
   const handleCreateContact = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/api/contacts', newContact);
+      await api.post('/contacts', newContact);
       setShowModal(false);
       setNewContact({ name: '', email: '', phone: '' });
       fetchContacts();

@@ -62,7 +62,7 @@ export default function OrdersPage() {
       if (statusFilter !== 'all') params.status = statusFilter;
       if (searchTerm) params.search = searchTerm;
 
-      const response = await api.get('/api/orders', { params });
+      const response = await api.get('/orders', { params });
       setOrders(response.data.orders || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -73,7 +73,7 @@ export default function OrdersPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/api/orders/stats/summary');
+      const response = await api.get('/orders/stats/summary');
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);

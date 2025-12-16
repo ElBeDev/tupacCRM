@@ -102,7 +102,7 @@ export default function ConversationsPage() {
 
   const loadConversations = async () => {
     try {
-      const response = await api.get('/api/conversations');
+      const response = await api.get('/conversations');
       setConversations(response.data);
     } catch (error) {
       console.error('Error loading conversations:', error);
@@ -140,7 +140,7 @@ export default function ConversationsPage() {
       setMessages(prev => [...prev, tempMsg]);
 
       // Send message
-      await api.post('/api/whatsapp/send', {
+      await api.post('/whatsapp/send', {
         to: selectedConversation.contactPhone,
         message: messageContent,
         conversationId: selectedConversation.id,

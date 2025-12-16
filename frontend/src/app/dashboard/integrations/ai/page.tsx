@@ -45,7 +45,7 @@ export default function AIConfigPage() {
 
   const loadConfig = async () => {
     try {
-      const response = await api.get('/api/ai/config');
+      const response = await api.get('/ai/config');
       if (response.data && response.data.id) {
         setConfig(response.data);
         setFormData({
@@ -68,7 +68,7 @@ export default function AIConfigPage() {
 
   const checkAPIKey = async () => {
     try {
-      const response = await api.get('/api/ai/status');
+      const response = await api.get('/ai/status');
       setApiKeyStatus(response.data.connected ? 'connected' : 'disconnected');
     } catch (error) {
       setApiKeyStatus('disconnected');
@@ -97,7 +97,7 @@ export default function AIConfigPage() {
     setTesting(true);
     setTestResult(null);
     try {
-      const response = await api.post('/api/ai/test', {
+      const response = await api.post('/ai/test', {
         messages: ['Hola, me interesa conocer más sobre sus servicios. ¿Pueden ayudarme?'],
       });
       setTestResult(JSON.stringify(response.data, null, 2));

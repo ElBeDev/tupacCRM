@@ -77,7 +77,7 @@ export default function PipelinePage() {
 
   const loadContacts = async () => {
     try {
-      const response = await api.get('/api/contacts');
+      const response = await api.get('/contacts');
       const contacts: Contact[] = response.data;
 
       // Agrupar contactos por estado

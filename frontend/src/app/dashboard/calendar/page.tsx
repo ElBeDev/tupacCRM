@@ -34,7 +34,7 @@ export default function CalendarPage() {
 
   const loadEvents = async () => {
     try {
-      const response = await api.get('/api/google/calendar/events?maxResults=20');
+      const response = await api.get('/google/calendar/events?maxResults=20');
       setEvents(response.data);
       setError('');
     } catch (err: any) {
@@ -58,7 +58,7 @@ export default function CalendarPage() {
         .map(email => email.trim())
         .filter(email => email);
 
-      await api.post('/api/google/calendar/events', {
+      await api.post('/google/calendar/events', {
         ...formData,
         attendees,
       });
