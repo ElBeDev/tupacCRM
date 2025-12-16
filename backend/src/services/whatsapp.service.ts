@@ -13,6 +13,7 @@ import { Server } from 'socket.io';
 import path from 'path';
 import fs from 'fs';
 import { AIService } from './ai.service';
+import { SmartTagService } from './smart-tag.service';
 
 class WhatsAppService {
   private sock: WASocket | null = null;
@@ -25,10 +26,12 @@ class WhatsAppService {
   private isInitializing: boolean = false;
   private shouldReconnect: boolean = true;
   private aiService: AIService;
+  private smartTagService: SmartTagService;
 
   constructor(io?: Server) {
     this.io = io || null;
     this.aiService = new AIService();
+    this.smartTagService = new SmartTagService();
     // Ensure session directory exists
     const sessionPath = path.join(process.cwd(), 'whatsapp-sessions', this.sessionName);
     if (!fs.existsSync(sessionPath)) {
@@ -329,6 +332,38 @@ class WhatsAppService {
               contactId: contact.id,
               analysis: aiAnalysis,
             });
+          }
+
+          // ========================================
+          // 🏷️ SMART TAGS - Auto-detect intent and apply tags
+          // ========================================
+          try {
+            console.log('🏷️ Detecting intent with Smart Tags...');
+            const intentResult = await this.smartTagService.analyzeAndTagConversation(
+              conversation.id,
+              messageContent
+            );
+
+            console.log('🎯 Intent detected:', {
+              intencion: intentResult.intent.intencion,
+              confianza: intentResult.intent.confianza,
+              productos: intentResult.intent.productos_mencionados,
+              prioridad: intentResult.intent.prioridad,
+              tagsAplicados: intentResult.appliedTags,
+            });
+
+            // Emit smart tag update to frontend
+            if (this.io) {
+              this.io.emit('smarttag:update', {
+                conversationId: conversation.id,
+                contactId: contact.id,
+                intent: intentResult.intent,
+                appliedTags: intentResult.appliedTags,
+              });
+            }
+          } catch (smartTagError) {
+            console.error('❌ Error in Smart Tag detection:', smartTagError);
+            // Continue even if smart tags fail
           }
 
           // Auto-respuesta si está habilitada

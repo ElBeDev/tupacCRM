@@ -1,46 +1,95 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { io, Socket } from 'socket.io-client';
 
 export default function WhatsAppPage() {
   const [connected, setConnected] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [qrImage, setQrImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>('');
+
+  // Función para obtener el QR como imagen
+  const fetchQrImage = useCallback(async (qr: string) => {
+    try {
+      const response = await api.get('/api/whatsapp/qr');
+      if (response.data.qrImage) {
+        setQrImage(response.data.qrImage);
+      }
+    } catch (error) {
+      console.error('Error fetching QR image:', error);
+      // Fallback: usar API externa
+      setQrImage(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
+    }
+  }, []);
 
   useEffect(() => {
     checkStatus();
     
     // Initialize Socket.IO
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
-    const newSocket = io(WS_URL);
+    const newSocket = io(WS_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
     
     newSocket.on('connect', () => {
       console.log('Socket connected');
+      setStatusMessage('Conexión establecida');
     });
 
-    newSocket.on('whatsapp:qr', (data: { qr: string }) => {
-      console.log('QR received');
+    newSocket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setStatusMessage('Conexión perdida, reconectando...');
+    });
+
+    newSocket.on('whatsapp:qr', async (data: { qr: string }) => {
+      console.log('QR received via socket');
       setQrCode(data.qr);
       setLoading(false);
+      setStatusMessage('Escanea el código QR');
+      // Obtener imagen del QR
+      await fetchQrImage(data.qr);
     });
 
     newSocket.on('whatsapp:connected', (data: { phoneNumber: string }) => {
-      console.log('WhatsApp connected!');
+      console.log('WhatsApp connected!', data.phoneNumber);
       setConnected(true);
       setQrCode(null);
+      setQrImage(null);
       setPhoneNumber(data.phoneNumber);
+      setLoading(false);
+      setStatusMessage('¡Conectado exitosamente!');
+    });
+
+    newSocket.on('whatsapp:disconnected', (data: { reason?: number }) => {
+      console.log('WhatsApp disconnected', data);
+      setConnected(false);
+      setQrCode(null);
+      setQrImage(null);
+      setPhoneNumber(null);
+      setStatusMessage('WhatsApp desconectado');
+    });
+
+    newSocket.on('whatsapp:error', (data: { message: string }) => {
+      console.error('WhatsApp error:', data.message);
+      setStatusMessage(`Error: ${data.message}`);
       setLoading(false);
     });
 
-    newSocket.on('whatsapp:disconnected', () => {
-      console.log('WhatsApp disconnected');
-      setConnected(false);
-      setQrCode(null);
-      setPhoneNumber(null);
+    newSocket.on('whatsapp:max-retry', () => {
+      setStatusMessage('Máximo de intentos alcanzado. Intenta de nuevo.');
+      setLoading(false);
+    });
+
+    // Smart Tags updates
+    newSocket.on('smarttag:update', (data: any) => {
+      console.log('🏷️ Smart Tag update:', data);
     });
 
     setSocket(newSocket);
@@ -48,13 +97,16 @@ export default function WhatsAppPage() {
     return () => {
       newSocket.close();
     };
-  }, []);
+  }, [fetchQrImage]);
 
   const checkStatus = async () => {
     try {
       const response = await api.get('/api/whatsapp/status');
       setConnected(response.data.connected);
-      setQrCode(response.data.qrCode);
+      if (response.data.qrCode) {
+        setQrCode(response.data.qrCode);
+        await fetchQrImage(response.data.qrCode);
+      }
     } catch (error) {
       console.error('Error checking status:', error);
     }
@@ -138,15 +190,22 @@ export default function WhatsAppPage() {
             </h3>
             <div className="flex justify-center">
               <div className="bg-white p-6 rounded-lg shadow-md border-2 border-gray-200">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                    qrCode
-                  )}`}
-                  alt="QR Code"
-                  className="w-64 h-64"
-                />
+                {qrImage ? (
+                  <img
+                    src={qrImage}
+                    alt="QR Code"
+                    className="w-64 h-64"
+                  />
+                ) : (
+                  <div className="w-64 h-64 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                  </div>
+                )}
               </div>
             </div>
+            {statusMessage && (
+              <p className="mt-3 text-sm font-medium text-green-600">{statusMessage}</p>
+            )}
             <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
               1. Abre WhatsApp en tu teléfono
               <br />

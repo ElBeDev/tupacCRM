@@ -1,6 +1,7 @@
 import { Router, Request } from 'express';
 import { authenticate } from '../middleware/auth';
 import WhatsAppService from '../services/whatsapp.service';
+import QRCode from 'qrcode';
 
 const router = Router();
 let whatsappService: WhatsAppService | null = null;
@@ -23,6 +24,51 @@ router.get('/status', authenticate, async (req: Request, res) => {
   } catch (error) {
     console.error('Error getting WhatsApp status:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get QR Code as base64 image
+router.get('/qr', authenticate, async (req: Request, res) => {
+  try {
+    if (!whatsappService) {
+      return res.status(503).json({ error: 'WhatsApp service not initialized' });
+    }
+
+    const qrCode = whatsappService.getQRCode();
+    
+    if (!qrCode) {
+      const isConnected = whatsappService.isActive();
+      if (isConnected) {
+        return res.json({ 
+          connected: true, 
+          message: 'Already connected, no QR needed' 
+        });
+      }
+      return res.json({ 
+        connected: false, 
+        qrCode: null, 
+        message: 'QR not available yet. Try connecting first.' 
+      });
+    }
+
+    // Generate QR as base64 image
+    const qrImageBase64 = await QRCode.toDataURL(qrCode, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    res.json({
+      connected: false,
+      qrCode: qrCode,
+      qrImage: qrImageBase64,
+    });
+  } catch (error) {
+    console.error('Error getting QR code:', error);
+    res.status(500).json({ error: 'Failed to generate QR code' });
   }
 });
 
