@@ -480,6 +480,9 @@ export default function SmartTagsPage() {
                         icon={<FiMoreVertical />}
                         variant="ghost"
                         size="sm"
+                        aria-label="Opciones"
+                        borderRadius="lg"
+                        _hover={{ bg: 'gray.100' }}
                       />
                       <MenuList shadow="lg" borderRadius="xl">
                         <MenuItem icon={<FiEdit2 />} onClick={() => openEditModal(tag)}>

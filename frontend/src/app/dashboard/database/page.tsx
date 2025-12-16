@@ -606,6 +606,9 @@ export default function DatabasePage() {
                           icon={<FiMoreVertical />}
                           variant="ghost"
                           size="sm"
+                          aria-label="Opciones"
+                          borderRadius="lg"
+                          _hover={{ bg: 'gray.100' }}
                         />
                         <MenuList shadow="lg" borderRadius="xl">
                           <MenuItem
