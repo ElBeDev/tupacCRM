@@ -2,14 +2,14 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-
-# Install dependencies
+# Install ALL dependencies (dev included for build process)
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
 # Copy source and build
 COPY . .
+
+ENV NODE_ENV=production
 RUN npm run build
 
 # Production stage
@@ -19,8 +19,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy only what's needed for production
-COPY --from=builder /app/package*.json ./
+# Copy only what's needed for production (standalone output)
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
