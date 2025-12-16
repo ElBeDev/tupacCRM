@@ -1,7 +1,7 @@
 import { Router, Request } from 'express';
 import { authenticate } from '../middleware/auth';
 import WhatsAppService from '../services/whatsapp.service';
-import QRCode from 'qrcode';
+import * as QRCode from 'qrcode';
 
 const router = Router();
 let whatsappService: WhatsAppService | null = null;
