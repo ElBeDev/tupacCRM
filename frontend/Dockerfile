@@ -9,7 +9,13 @@ RUN npm ci
 # Copy source and build
 COPY . .
 
+# Build-time environment variables for Next.js
+ARG NEXT_PUBLIC_API_URL=https://srv1190739.hstgr.cloud/api
+ARG NEXT_PUBLIC_WS_URL=wss://srv1190739.hstgr.cloud
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 ENV NODE_ENV=production
+
 RUN npm run build
 
 # Production stage
