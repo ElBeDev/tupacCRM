@@ -214,7 +214,9 @@ class WhatsAppService {
         const phoneNumber = from.split('@')[0];
         const messageContent = this.extractMessageContent(message.message);
 
-        console.log(`📩 Message from ${phoneNumber}: ${messageContent}`);
+        // Log full JID for debugging
+        console.log(`📩 Message from ${phoneNumber} (JID: ${from}): ${messageContent}`);
+        console.log(`📋 Participant: ${message.key.participant || 'N/A'}, pushName: ${message.pushName || 'N/A'}`);
 
         // Find or create contact
         let contact = await prisma.contact.findUnique({ where: { phone: phoneNumber } });
