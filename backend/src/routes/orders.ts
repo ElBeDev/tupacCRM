@@ -12,7 +12,19 @@ async function sendWhatsAppNotification(phone: string, message: string, conversa
   try {
     // Importar el servicio de WhatsApp dinámicamente para evitar dependencias circulares
     const { default: WhatsAppService } = await import('../services/whatsapp.service');
-    await WhatsAppService.sendMessage(phone, message, conversationId || undefined);
+    const whatsappService = WhatsAppService.getInstance();
+    
+    if (!whatsappService) {
+      console.warn('⚠️ WhatsApp service not initialized');
+      return false;
+    }
+    
+    if (!whatsappService.isActive()) {
+      console.warn('⚠️ WhatsApp not connected');
+      return false;
+    }
+    
+    await whatsappService.sendMessage(phone, message, conversationId || undefined);
     console.log(`✅ WhatsApp notification sent to ${phone}`);
     return true;
   } catch (error) {

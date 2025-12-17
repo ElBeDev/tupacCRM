@@ -359,15 +359,6 @@ export class AssistantService {
     }
   }
 
-      const specialistResponse = response.choices[0].message.content;
-      console.log(`✅ Specialist response: ${specialistResponse?.substring(0, 100)}...`);
-      
-      return specialistResponse;
-    } catch (error) {
-      console.error(`❌ Error consulting specialist ${specialistName}:`, error);
-      return null;
-    }
-  }
   async testAssistant(assistantId: string, userId: string, message: string) {
     if (!openai) throw new Error('OpenAI API key not configured');
     

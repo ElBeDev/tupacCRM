@@ -16,6 +16,8 @@ import { AIService } from './ai.service';
 import { SmartTagService } from './smart-tag.service';
 
 class WhatsAppService {
+  private static instance: WhatsAppService | null = null;
+  
   private sock: WASocket | null = null;
   private io: Server | null = null;
   private qrCode: string | null = null;
@@ -37,6 +39,13 @@ class WhatsAppService {
     if (!fs.existsSync(sessionPath)) {
       fs.mkdirSync(sessionPath, { recursive: true });
     }
+    // Guardar instancia para acceso global
+    WhatsAppService.instance = this;
+  }
+  
+  // Obtener instancia singleton
+  static getInstance(): WhatsAppService | null {
+    return WhatsAppService.instance;
   }
 
   async initialize() {
