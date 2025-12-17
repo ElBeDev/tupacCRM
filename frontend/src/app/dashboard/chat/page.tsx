@@ -118,14 +118,8 @@ export default function ChatPage() {
       });
     });
 
-    // Also listen for sent messages
-    newSocket.on('message:new', (data: { conversationId: string; message: Message }) => {
-      console.log('Sent message update:', data);
-      setMessages(prev => {
-        if (prev.some(m => m.id === data.message.id)) return prev;
-        return [...prev, data.message];
-      });
-    });
+    // Note: We don't listen for 'message:new' for sent messages
+    // because we already add them locally in handleSendMessage
 
     setSocket(newSocket);
 
