@@ -37,6 +37,7 @@ import {
   ChevronRight,
   Crown,
   LogOut,
+  Kanban,
 } from 'lucide-react';
 
 interface NavLink {
@@ -78,6 +79,7 @@ export default function NavbarCollapsable() {
     {
       title: 'Automatización',
       items: [
+        { name: 'Pipeline', href: '/dashboard/pipeline', icon: Kanban },
         { name: 'Smart Tags', href: '/dashboard/smart-tags', icon: Tag },
         { name: 'Campañas', href: '/dashboard/campaigns', icon: Megaphone },
         { name: 'Base de datos', href: '/dashboard/database', icon: Database },
