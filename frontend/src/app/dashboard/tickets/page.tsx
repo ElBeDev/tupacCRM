@@ -319,7 +319,6 @@ export default function TicketsPage() {
             placeholder="Buscar por número, asunto o cliente..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            leftElement={<Icon as={FiSearch} ml={3} color="gray.400" />}
           />
         </Box>
         <Select
