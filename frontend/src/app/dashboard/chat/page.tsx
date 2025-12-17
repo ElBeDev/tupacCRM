@@ -12,8 +12,9 @@ import {
   IconButton,
   Textarea,
   Button,
-  Divider,
   Icon,
+  Spinner,
+  useToast,
 } from '@chakra-ui/react';
 import {
   Search,
@@ -25,108 +26,219 @@ import {
   Smile,
   Filter,
   Plus,
+  MessageSquare,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import api from '@/lib/api';
+import { io, Socket } from 'socket.io-client';
 
 interface Message {
   id: string;
-  text: string;
-  sender: 'user' | 'contact';
-  time: string;
+  content: string;
+  direction: 'inbound' | 'outbound';
+  sentAt: string;
+  status?: string;
 }
 
 interface Conversation {
   id: string;
-  name: string;
+  contactId: string;
+  contactName: string;
+  contactPhone: string;
   lastMessage: string;
-  time: string;
-  unread: number;
-  avatar: string;
-  status: 'online' | 'offline';
-  messages: Message[];
+  lastMessageAt: string;
+  unreadCount: number;
+  channel: string;
+  status: string;
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: '1',
-    name: 'Juan Pérez',
-    lastMessage: 'Hola, me interesa el producto',
-    time: '5m',
-    unread: 2,
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=juan',
-    status: 'online',
-    messages: [
-      { id: '1', text: 'Hola, buenos días', sender: 'contact', time: '10:00 AM' },
-      { id: '2', text: 'Hola! ¿En qué puedo ayudarte?', sender: 'user', time: '10:01 AM' },
-      { id: '3', text: 'Me interesa conocer más sobre sus productos', sender: 'contact', time: '10:02 AM' },
-      { id: '4', text: 'Claro, tenemos una amplia gama de productos. ¿Buscas algo específico?', sender: 'user', time: '10:03 AM' },
-    ],
-  },
-  {
-    id: '2',
-    name: 'María García',
-    lastMessage: '¿Cuándo pueden entregar?',
-    time: '15m',
-    unread: 0,
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=maria',
-    status: 'online',
-    messages: [
-      { id: '1', text: '¿Cuándo pueden entregar?', sender: 'contact', time: '9:45 AM' },
-      { id: '2', text: 'Podemos entregar en 2-3 días hábiles', sender: 'user', time: '9:50 AM' },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Carlos López',
-    lastMessage: 'Gracias por la información',
-    time: '1h',
-    unread: 0,
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=carlos',
-    status: 'offline',
-    messages: [
-      { id: '1', text: 'Necesito cotización', sender: 'contact', time: '8:30 AM' },
-      { id: '2', text: 'Por supuesto, te envío la cotización', sender: 'user', time: '8:35 AM' },
-      { id: '3', text: 'Gracias por la información', sender: 'contact', time: '8:40 AM' },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Ana Martínez',
-    lastMessage: 'Perfecto, gracias',
-    time: '2h',
-    unread: 0,
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ana',
-    status: 'offline',
-    messages: [],
-  },
-  {
-    id: '5',
-    name: 'Pedro Sánchez',
-    lastMessage: '¿Tienen stock disponible?',
-    time: '3h',
-    unread: 1,
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=pedro',
-    status: 'online',
-    messages: [],
-  },
-];
-
 export default function ChatPage() {
-  const [selectedChat, setSelectedChat] = useState<string>(mockConversations[0].id);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
 
-  const selectedConversation = mockConversations.find((c) => c.id === selectedChat);
-  
-  const filteredConversations = mockConversations.filter((conv) =>
-    conv.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const selectedConversation = conversations.find((c) => c.id === selectedChat);
+
+  const filteredConversations = conversations.filter((conv) =>
+    conv.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.contactPhone.includes(searchQuery)
   );
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      console.log('Sending message:', message);
-      setMessage('');
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Load conversations and setup socket
+  useEffect(() => {
+    loadConversations();
+
+    // Initialize Socket.IO for real-time updates
+    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
+    const newSocket = io(WS_URL);
+
+    newSocket.on('connect', () => {
+      console.log('Chat socket connected');
+    });
+
+    newSocket.on('whatsapp:message', (data: { conversationId: string; message: Message }) => {
+      console.log('New message received:', data);
+      
+      // Update conversation list
+      setConversations(prev => {
+        const updated = prev.map(conv => {
+          if (conv.id === data.conversationId) {
+            return {
+              ...conv,
+              lastMessage: data.message.content,
+              lastMessageAt: data.message.sentAt,
+              unreadCount: selectedChat === data.conversationId ? 0 : conv.unreadCount + 1,
+            };
+          }
+          return conv;
+        });
+        // Sort by last message time
+        return updated.sort((a, b) => 
+          new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+        );
+      });
+
+      // If this conversation is selected, add the message
+      if (selectedChat === data.conversationId) {
+        setMessages(prev => [...prev, data.message]);
+      }
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (selectedChat) {
+      loadMessages(selectedChat);
+      // Mark as read
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === selectedChat ? { ...conv, unreadCount: 0 } : conv
+        )
+      );
     }
+  }, [selectedChat]);
+
+  const loadConversations = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/conversations');
+      setConversations(response.data);
+      
+      // Auto-select first conversation if available
+      if (response.data.length > 0 && !selectedChat) {
+        setSelectedChat(response.data[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar las conversaciones',
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMessages = async (conversationId: string) => {
+    try {
+      setLoadingMessages(true);
+      const response = await api.get(\`/conversations/\${conversationId}/messages\`);
+      setMessages(response.data);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || !selectedConversation) return;
+
+    const messageText = message.trim();
+    setMessage('');
+    setSending(true);
+
+    try {
+      const response = await api.post('/whatsapp/send', {
+        phone: selectedConversation.contactPhone,
+        message: messageText,
+      });
+
+      // Add message to UI immediately
+      const newMessage: Message = {
+        id: response.data.messageId || Date.now().toString(),
+        content: messageText,
+        direction: 'outbound',
+        sentAt: new Date().toISOString(),
+        status: 'sent',
+      };
+      
+      setMessages(prev => [...prev, newMessage]);
+
+      // Update conversation last message
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === selectedChat
+            ? { ...conv, lastMessage: messageText, lastMessageAt: new Date().toISOString() }
+            : conv
+        )
+      );
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      toast({
+        title: 'Error al enviar',
+        description: error.response?.data?.error || 'No se pudo enviar el mensaje',
+        status: 'error',
+        duration: 3000,
+      });
+      // Restore the message
+      setMessage(messageText);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Ahora';
+    if (minutes < 60) return \`\${minutes}m\`;
+    if (hours < 24) return \`\${hours}h\`;
+    if (days < 7) return \`\${days}d\`;
+    return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  };
+
+  const formatMessageTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString('es-MX', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -150,10 +262,12 @@ export default function ChatPage() {
             </Text>
             <Flex gap={2}>
               <IconButton
-                aria-label="Filtrar"
-                icon={<Filter size={18} />}
+                aria-label="Actualizar"
+                icon={loading ? <Spinner size="sm" /> : <Filter size={18} />}
                 size="sm"
                 variant="ghost"
+                onClick={loadConversations}
+                isDisabled={loading}
                 _hover={{ bg: 'gray.100' }}
               />
               <IconButton
@@ -187,71 +301,99 @@ export default function ChatPage() {
 
         {/* Lista de Conversaciones */}
         <Box flex={1} overflowY="auto">
-          {filteredConversations.map((conv) => (
+          {loading ? (
+            <Flex justify="center" align="center" h="200px">
+              <Spinner size="lg" color="#9D39FE" />
+            </Flex>
+          ) : filteredConversations.length === 0 ? (
             <Flex
-              key={conv.id}
-              p={4}
-              cursor="pointer"
-              bg={selectedChat === conv.id ? 'purple.50' : 'transparent'}
-              borderLeft={selectedChat === conv.id ? '3px solid' : '3px solid transparent'}
-              borderLeftColor={selectedChat === conv.id ? '#9D39FE' : 'transparent'}
-              _hover={{ bg: selectedChat === conv.id ? 'purple.50' : 'gray.50' }}
-              transition="all 0.2s"
-              onClick={() => setSelectedChat(conv.id)}
+              direction="column"
+              align="center"
+              justify="center"
+              h="200px"
               gap={3}
+              px={4}
             >
-              {/* Avatar con status */}
-              <Box position="relative">
-                <Avatar
-                  size="md"
-                  src={conv.avatar}
-                  name={conv.name}
-                />
-                {conv.status === 'online' && (
-                  <Box
-                    position="absolute"
-                    bottom={0}
-                    right={0}
-                    w="12px"
-                    h="12px"
-                    bg="green.400"
-                    borderRadius="full"
-                    border="2px solid white"
+              <Icon as={MessageSquare} boxSize={12} color="gray.300" />
+              <Text fontSize="sm" color="gray.500" textAlign="center">
+                {searchQuery ? 'No se encontraron conversaciones' : 'No hay conversaciones aún'}
+              </Text>
+              <Text fontSize="xs" color="gray.400" textAlign="center">
+                Conecta WhatsApp y espera mensajes entrantes
+              </Text>
+            </Flex>
+          ) : (
+            filteredConversations.map((conv) => (
+              <Flex
+                key={conv.id}
+                p={4}
+                cursor="pointer"
+                bg={selectedChat === conv.id ? 'purple.50' : 'transparent'}
+                borderLeft={selectedChat === conv.id ? '3px solid' : '3px solid transparent'}
+                borderLeftColor={selectedChat === conv.id ? '#9D39FE' : 'transparent'}
+                _hover={{ bg: selectedChat === conv.id ? 'purple.50' : 'gray.50' }}
+                transition="all 0.2s"
+                onClick={() => setSelectedChat(conv.id)}
+                gap={3}
+              >
+                {/* Avatar con canal */}
+                <Box position="relative">
+                  <Avatar
+                    size="md"
+                    name={conv.contactName}
+                    src={\`https://api.dicebear.com/7.x/avataaars/svg?seed=\${conv.contactPhone}\`}
                   />
-                )}
-              </Box>
-
-              {/* Información del contacto */}
-              <Flex flex={1} direction="column" overflow="hidden">
-                <Flex justify="space-between" align="center" mb={1}>
-                  <Text fontWeight="600" color="gray.800" fontSize="sm" noOfLines={1}>
-                    {conv.name}
-                  </Text>
-                  <Text fontSize="xs" color="gray.500">
-                    {conv.time}
-                  </Text>
-                </Flex>
-                <Flex justify="space-between" align="center">
-                  <Text fontSize="sm" color="gray.600" noOfLines={1} flex={1}>
-                    {conv.lastMessage}
-                  </Text>
-                  {conv.unread > 0 && (
-                    <Badge
-                      bg="#9D39FE"
-                      color="white"
+                  {conv.channel === 'whatsapp' && (
+                    <Box
+                      position="absolute"
+                      bottom={0}
+                      right={0}
+                      w="16px"
+                      h="16px"
+                      bg="green.400"
                       borderRadius="full"
-                      px={2}
-                      py={0.5}
-                      fontSize="xs"
-                      ml={2}
+                      border="2px solid white"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
                     >
-                      {conv.unread}
-                    </Badge>
+                      <Text fontSize="8px" color="white">W</Text>
+                    </Box>
                   )}
+                </Box>
+
+                {/* Información del contacto */}
+                <Flex flex={1} direction="column" overflow="hidden">
+                  <Flex justify="space-between" align="center" mb={1}>
+                    <Text fontWeight="600" color="gray.800" fontSize="sm" noOfLines={1}>
+                      {conv.contactName || conv.contactPhone}
+                    </Text>
+                    <Text fontSize="xs" color="gray.500">
+                      {formatTime(conv.lastMessageAt)}
+                    </Text>
+                  </Flex>
+                  <Flex justify="space-between" align="center">
+                    <Text fontSize="sm" color="gray.600" noOfLines={1} flex={1}>
+                      {conv.lastMessage}
+                    </Text>
+                    {conv.unreadCount > 0 && (
+                      <Badge
+                        bg="#9D39FE"
+                        color="white"
+                        borderRadius="full"
+                        px={2}
+                        py={0.5}
+                        fontSize="xs"
+                        ml={2}
+                      >
+                        {conv.unreadCount}
+                      </Badge>
+                    )}
+                  </Flex>
                 </Flex>
               </Flex>
-            </Flex>
-          ))}
+            ))
+          )}
         </Box>
       </Box>
 
@@ -269,15 +411,15 @@ export default function ChatPage() {
               <Flex align="center" gap={3}>
                 <Avatar
                   size="sm"
-                  src={selectedConversation.avatar}
-                  name={selectedConversation.name}
+                  name={selectedConversation.contactName}
+                  src={\`https://api.dicebear.com/7.x/avataaars/svg?seed=\${selectedConversation.contactPhone}\`}
                 />
                 <Box>
                   <Text fontWeight="600" color="gray.800" fontSize="sm">
-                    {selectedConversation.name}
+                    {selectedConversation.contactName || selectedConversation.contactPhone}
                   </Text>
                   <Text fontSize="xs" color="gray.500">
-                    {selectedConversation.status === 'online' ? 'En línea' : 'Desconectado'}
+                    {selectedConversation.contactPhone} • {selectedConversation.channel}
                   </Text>
                 </Box>
               </Flex>
@@ -315,36 +457,42 @@ export default function ChatPage() {
             p={6}
             bg="#FEFEFE"
           >
-            {selectedConversation.messages.length > 0 ? (
+            {loadingMessages ? (
+              <Flex justify="center" align="center" h="100%">
+                <Spinner size="lg" color="#9D39FE" />
+              </Flex>
+            ) : messages.length > 0 ? (
               <Flex direction="column" gap={4}>
-                {selectedConversation.messages.map((msg) => (
+                {messages.map((msg) => (
                   <Flex
                     key={msg.id}
-                    justify={msg.sender === 'user' ? 'flex-end' : 'flex-start'}
+                    justify={msg.direction === 'outbound' ? 'flex-end' : 'flex-start'}
                   >
                     <Box maxW="70%">
                       <Box
-                        bg={msg.sender === 'user' ? '#9D39FE' : 'white'}
-                        color={msg.sender === 'user' ? 'white' : 'gray.800'}
+                        bg={msg.direction === 'outbound' ? '#9D39FE' : 'white'}
+                        color={msg.direction === 'outbound' ? 'white' : 'gray.800'}
                         px={4}
                         py={3}
                         borderRadius="xl"
-                        border={msg.sender === 'contact' ? '1px' : 'none'}
+                        border={msg.direction === 'inbound' ? '1px' : 'none'}
                         borderColor="gray.200"
+                        boxShadow="sm"
                       >
-                        <Text fontSize="sm">{msg.text}</Text>
+                        <Text fontSize="sm" whiteSpace="pre-wrap">{msg.content}</Text>
                       </Box>
                       <Text
                         fontSize="xs"
                         color="gray.500"
                         mt={1}
-                        textAlign={msg.sender === 'user' ? 'right' : 'left'}
+                        textAlign={msg.direction === 'outbound' ? 'right' : 'left'}
                       >
-                        {msg.time}
+                        {formatMessageTime(msg.sentAt)}
                       </Text>
                     </Box>
                   </Flex>
                 ))}
+                <div ref={messagesEndRef} />
               </Flex>
             ) : (
               <Flex
@@ -403,6 +551,7 @@ export default function ChatPage() {
                   _hover={{ borderColor: 'gray.300' }}
                   _focus={{ borderColor: '#9D39FE', boxShadow: '0 0 0 1px #9D39FE' }}
                   borderRadius="lg"
+                  isDisabled={sending}
                 />
               </Box>
 
@@ -417,9 +566,9 @@ export default function ChatPage() {
                 colorScheme="purple"
                 bg="#9D39FE"
                 _hover={{ bg: '#8A2BE2' }}
-                leftIcon={<Send size={18} />}
+                leftIcon={sending ? <Spinner size="sm" /> : <Send size={18} />}
                 onClick={handleSendMessage}
-                isDisabled={!message.trim()}
+                isDisabled={!message.trim() || sending}
               >
                 Enviar
               </Button>
@@ -439,10 +588,10 @@ export default function ChatPage() {
             💬
           </Text>
           <Text fontSize="xl" fontWeight="600" color="gray.400">
-            Selecciona una conversación
+            {loading ? 'Cargando conversaciones...' : 'Selecciona una conversación'}
           </Text>
           <Text fontSize="sm" color="gray.400">
-            Elige un contacto para comenzar a chatear
+            {loading ? '' : 'Elige un contacto para comenzar a chatear'}
           </Text>
         </Flex>
       )}
