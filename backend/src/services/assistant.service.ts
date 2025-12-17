@@ -362,8 +362,9 @@ export class AssistantService {
   async testAssistant(assistantId: string, userId: string, message: string) {
     if (!openai) throw new Error('OpenAI API key not configured');
     
+    // Buscar asistente solo por ID - cualquier usuario autenticado puede probar
     const assistant = await prisma.assistant.findFirst({
-      where: { id: assistantId, userId },
+      where: { id: assistantId },
     });
     
     if (!assistant || !assistant.openaiId) {
@@ -480,8 +481,9 @@ export class AssistantService {
   }
 
   async getTestMessages(assistantId: string, userId: string) {
+    // Cualquier usuario autenticado puede ver mensajes de prueba
     const assistant = await prisma.assistant.findFirst({
-      where: { id: assistantId, userId },
+      where: { id: assistantId },
     });
     
     if (!assistant) throw new Error('Assistant not found');
@@ -493,8 +495,9 @@ export class AssistantService {
   }
 
   async clearTestMessages(assistantId: string, userId: string) {
+    // Cualquier usuario autenticado puede limpiar mensajes de prueba
     const assistant = await prisma.assistant.findFirst({
-      where: { id: assistantId, userId },
+      where: { id: assistantId },
     });
     
     if (!assistant) throw new Error('Assistant not found');
@@ -508,8 +511,9 @@ export class AssistantService {
 
   // Sincronizar asistente local con OpenAI (obtener config actual de OpenAI)
   async syncAssistant(id: string, userId: string) {
+    // Cualquier usuario autenticado puede sincronizar
     const assistant = await prisma.assistant.findFirst({
-      where: { id, userId },
+      where: { id },
     });
 
     if (!assistant) throw new Error('Assistant not found');

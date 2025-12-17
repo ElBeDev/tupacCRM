@@ -41,6 +41,8 @@ import {
   FiZap,
   FiCpu,
   FiSettings,
+  FiImage,
+  FiX,
 } from 'react-icons/fi';
 
 // Iconos personalizados
@@ -92,6 +94,8 @@ export default function TestingPage() {
   const [loading, setLoading] = useState(false);
   const [testingLoading, setTestingLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Estados para modo AI Config
   const [aiConfigs, setAiConfigs] = useState<AIConfig[]>([]);
@@ -179,11 +183,25 @@ export default function TestingPage() {
   };
 
   const sendTestMessage = async () => {
-    if (!message.trim() || !selectedAssistant) return;
+    if ((!message.trim() && selectedImages.length === 0) || !selectedAssistant) return;
 
     try {
       setTestingLoading(true);
       const token = localStorage.getItem('accessToken');
+      
+      // Preparar payload con o sin imágenes
+      let payload: any;
+      if (selectedImages.length > 0) {
+        payload = {
+          message: JSON.stringify({
+            text: message.trim(),
+            images: selectedImages
+          })
+        };
+      } else {
+        payload = { message: message.trim() };
+      }
+      
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/assistants/${selectedAssistant.id}/test`,
         {
@@ -192,7 +210,7 @@ export default function TestingPage() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ message: message.trim() }),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -202,6 +220,7 @@ export default function TestingPage() {
       }
 
       setMessage('');
+      setSelectedImages([]);
       await loadMessages(selectedAssistant.id);
     } catch (error: any) {
       console.error('Error sending test message:', error);
@@ -214,6 +233,38 @@ export default function TestingPage() {
     } finally {
       setTestingLoading(false);
     }
+  };
+
+  // Funciones para manejar imágenes
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'Error',
+          description: 'La imagen debe ser menor a 5MB',
+          status: 'error',
+          duration: 3000,
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setSelectedImages((prev) => [...prev, base64]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Limpiar input para poder seleccionar la misma imagen
+    e.target.value = '';
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const sendAITestMessage = async () => {
@@ -446,7 +497,61 @@ export default function TestingPage() {
 
                     {/* Input */}
                     <Box p={4} bg="white" borderTop="1px" borderColor="gray.100">
+                      {/* Preview de imágenes seleccionadas */}
+                      {selectedImages.length > 0 && (
+                        <HStack spacing={2} mb={3} flexWrap="wrap">
+                          {selectedImages.map((img, index) => (
+                            <Box key={index} position="relative">
+                              <Box
+                                as="img"
+                                src={img}
+                                alt={`Preview ${index + 1}`}
+                                w="60px"
+                                h="60px"
+                                objectFit="cover"
+                                borderRadius="md"
+                                border="2px solid"
+                                borderColor="purple.200"
+                              />
+                              <IconButton
+                                aria-label="Eliminar imagen"
+                                icon={<FiX />}
+                                size="xs"
+                                colorScheme="red"
+                                position="absolute"
+                                top="-2"
+                                right="-2"
+                                borderRadius="full"
+                                onClick={() => removeImage(index)}
+                              />
+                            </Box>
+                          ))}
+                        </HStack>
+                      )}
+                      
                       <HStack spacing={3}>
+                        {/* Input oculto para imágenes */}
+                        <input
+                          type="file"
+                          ref={imageInputRef}
+                          style={{ display: 'none' }}
+                          accept="image/*"
+                          multiple
+                          onChange={handleImageSelect}
+                        />
+                        
+                        <Tooltip label="Adjuntar imagen">
+                          <IconButton
+                            aria-label="Adjuntar imagen"
+                            icon={<FiImage />}
+                            variant="ghost"
+                            colorScheme="purple"
+                            borderRadius="xl"
+                            onClick={() => imageInputRef.current?.click()}
+                            isDisabled={testingLoading}
+                          />
+                        </Tooltip>
+                        
                         <Input
                           placeholder="Escribe un mensaje..."
                           value={message}
@@ -464,7 +569,7 @@ export default function TestingPage() {
                           icon={testingLoading ? <Spinner size="sm" /> : <FiSend />}
                           colorScheme="purple"
                           borderRadius="xl"
-                          isDisabled={!message.trim() || testingLoading}
+                          isDisabled={(!message.trim() && selectedImages.length === 0) || testingLoading}
                           onClick={sendTestMessage}
                         />
                       </HStack>
