@@ -181,6 +181,7 @@ export class AssistantService {
   /**
    * Generate a response using the assistant (for WhatsApp auto-reply)
    * Now with multi-agent support - consults specialized agents when needed
+   * Also supports Vision for image analysis
    */
   async generateResponse(
     assistantId: string, 
@@ -204,17 +205,78 @@ export class AssistantService {
 
     try {
       // ========================================
+      // 📷 CHECK FOR IMAGES - Use Vision API
+      // ========================================
+      let hasImages = false;
+      let parsedMessage: { text?: string; images?: string[] } | null = null;
+      
+      try {
+        parsedMessage = JSON.parse(message);
+        if (parsedMessage?.images && Array.isArray(parsedMessage.images) && parsedMessage.images.length > 0) {
+          hasImages = true;
+          console.log(`📷 Message contains ${parsedMessage.images.length} image(s), using Vision API`);
+        }
+      } catch {
+        // Not JSON, regular text message
+      }
+
+      // ========================================
       // 🤖 MULTI-AGENT: Consultar especialistas según intención
       // ========================================
       let enrichedContext = '';
+      const textMessage = hasImages ? (parsedMessage?.text || 'El cliente envió una imagen') : message;
       
       if (intent) {
-        const specialistResponse = await this.consultSpecialist(intent, message, context);
+        const specialistResponse = await this.consultSpecialist(intent, textMessage, context);
         if (specialistResponse) {
           enrichedContext = `\n\n[INFORMACIÓN DEL ESPECIALISTA]:\n${specialistResponse}\n\n[Usá esta información para responder al cliente de forma natural, sin mencionar que consultaste a otro asistente]`;
         }
       }
 
+      // ========================================
+      // 📷 VISION MODE: Use Chat Completions for images
+      // ========================================
+      if (hasImages && parsedMessage?.images) {
+        console.log('📷 Processing with Vision API...');
+        
+        const content: any[] = [];
+        
+        // Add text
+        const textContent = enrichedContext 
+          ? `${parsedMessage.text || 'Describe esta imagen'}${enrichedContext}`
+          : (parsedMessage.text || 'Describe esta imagen y responde según el contexto del negocio');
+        
+        content.push({ type: 'text', text: textContent });
+        
+        // Add images
+        for (const imageData of parsedMessage.images) {
+          content.push({
+            type: 'image_url',
+            image_url: {
+              url: imageData,
+              detail: 'high'
+            }
+          });
+        }
+
+        const visionResponse = await openai.chat.completions.create({
+          model: 'gpt-4o', // Vision requires gpt-4o or gpt-4-turbo
+          messages: [
+            { role: 'system', content: assistant.instructions },
+            { role: 'user', content }
+          ],
+          temperature: assistant.temperature || 0.7,
+          max_tokens: 1000,
+        });
+
+        const responseText = visionResponse.choices[0].message.content;
+        console.log('✅ Vision response generated');
+        return responseText;
+      }
+
+      // ========================================
+      // 💬 STANDARD MODE: Use Threads API for text
+      // ========================================
       // Create a new thread for this conversation
       const thread = await openai.beta.threads.create();
 

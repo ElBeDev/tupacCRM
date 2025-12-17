@@ -5,6 +5,7 @@ import makeWASocket, {
   WAMessage,
   proto,
   fetchLatestBaileysVersion,
+  downloadMediaMessage,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
@@ -215,17 +216,24 @@ class WhatsAppService {
   }
 
   private async handleIncomingMessages(messages: WAMessage[]) {
-    for (const message of messages) {
+    for (const waMessage of messages) {
       try {
-        if (!message.message || message.key.fromMe) continue;
+        if (!waMessage.message || waMessage.key.fromMe) continue;
 
-        const from = message.key.remoteJid || '';
+        const from = waMessage.key.remoteJid || '';
         const phoneNumber = from.split('@')[0];
-        const messageContent = this.extractMessageContent(message.message);
+        const messageContent = this.extractMessageContent(waMessage.message);
+        
+        // Detectar y descargar imagen si existe
+        let imageBase64: string | null = null;
+        if (this.hasImage(waMessage.message)) {
+          imageBase64 = await this.downloadImageAsBase64(waMessage);
+          console.log(`📷 Image detected and downloaded: ${imageBase64 ? 'YES' : 'NO'}`);
+        }
 
         // Log full JID for debugging
         console.log(`📩 Message from ${phoneNumber} (JID: ${from}): ${messageContent}`);
-        console.log(`📋 Participant: ${message.key.participant || 'N/A'}, pushName: ${message.pushName || 'N/A'}`);
+        console.log(`📋 Participant: ${waMessage.key.participant || 'N/A'}, pushName: ${waMessage.pushName || 'N/A'}`);
 
         // Find or create contact
         let contact = await prisma.contact.findUnique({ where: { phone: phoneNumber } });
@@ -242,7 +250,7 @@ class WhatsAppService {
 
           contact = await prisma.contact.create({
             data: {
-              name: message.pushName || phoneNumber,
+              name: waMessage.pushName || phoneNumber,
               phone: phoneNumber,
               whatsappJid: from, // Save full JID for replies
               source: 'WHATSAPP',
@@ -287,10 +295,11 @@ class WhatsAppService {
             conversationId: conversation.id,
             senderType: 'CONTACT',
             content: messageContent,
-            messageType: 'TEXT',
+            messageType: imageBase64 ? 'IMAGE' : 'TEXT',
             metadata: {
-              waMessageId: message.key.id,
-              timestamp: typeof message.messageTimestamp === 'number' ? message.messageTimestamp : Number(message.messageTimestamp),
+              waMessageId: waMessage.key.id,
+              timestamp: typeof waMessage.messageTimestamp === 'number' ? waMessage.messageTimestamp : Number(waMessage.messageTimestamp),
+              hasImage: !!imageBase64,
             },
           },
         });
@@ -410,11 +419,22 @@ class WhatsAppService {
               // Importar y usar el servicio de asistentes
               const assistantService = (await import('./assistant.service')).default;
               
+              // Preparar mensaje con imagen si existe
+              let messageForAssistant = messageContent;
+              if (imageBase64) {
+                // Enviar como JSON con imagen para que el asistente use Vision
+                messageForAssistant = JSON.stringify({
+                  text: messageContent || 'El cliente envió esta imagen:',
+                  images: [imageBase64]
+                });
+                console.log('📷 Sending image to assistant for Vision analysis');
+              }
+              
               // Generar respuesta con el asistente (ahora con soporte multi-agente)
               // Pasar contexto para crear pedidos automáticamente
               const response = await assistantService.generateResponse(
                 whatsAppAssistant.id,
-                messageContent,
+                messageForAssistant,
                 detectedIntent, // Pasar la intención para consultar especialistas
                 {
                   contactId: contact.id,
@@ -470,7 +490,52 @@ class WhatsAppService {
     if (message.extendedTextMessage?.text) return message.extendedTextMessage.text;
     if (message.imageMessage?.caption) return message.imageMessage.caption;
     if (message.videoMessage?.caption) return message.videoMessage.caption;
+    if (message.imageMessage) return '[Imagen]';
+    if (message.videoMessage) return '[Video]';
+    if (message.audioMessage) return '[Audio]';
+    if (message.documentMessage) return '[Documento]';
     return '[Media message]';
+  }
+  
+  // Verificar si el mensaje tiene imagen
+  private hasImage(message: proto.IMessage): boolean {
+    return !!message.imageMessage;
+  }
+  
+  // Descargar imagen y convertir a base64
+  private async downloadImageAsBase64(waMessage: WAMessage): Promise<string | null> {
+    try {
+      if (!waMessage.message?.imageMessage) return null;
+      
+      console.log('📷 Downloading image from WhatsApp...');
+      
+      const buffer = await downloadMediaMessage(
+        waMessage,
+        'buffer',
+        {},
+        {
+          logger: pino({ level: 'silent' }),
+          reuploadRequest: this.sock!.updateMediaMessage,
+        }
+      );
+      
+      if (!buffer) {
+        console.warn('⚠️ Could not download image');
+        return null;
+      }
+      
+      // Obtener el mimetype
+      const mimetype = waMessage.message.imageMessage.mimetype || 'image/jpeg';
+      
+      // Convertir a base64 data URL
+      const base64 = `data:${mimetype};base64,${(buffer as Buffer).toString('base64')}`;
+      
+      console.log(`✅ Image downloaded and converted to base64 (${(buffer as Buffer).length} bytes)`);
+      return base64;
+    } catch (error) {
+      console.error('❌ Error downloading image:', error);
+      return null;
+    }
   }
 
   async sendMessage(to: string, message: string, conversationId?: string) {
