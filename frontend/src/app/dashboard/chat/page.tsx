@@ -63,7 +63,13 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedChatRef = useRef<string | null>(null);
   const toast = useToast();
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
 
   const selectedConversation = conversations.find((c) => c.id === selectedChat);
 
@@ -100,7 +106,7 @@ export default function ChatPage() {
               ...conv,
               lastMessage: data.message.content,
               lastMessageAt: data.message.sentAt,
-              unreadCount: conv.unreadCount + 1,
+              unreadCount: selectedChatRef.current === data.conversationId ? 0 : conv.unreadCount + 1,
             };
           }
           return conv;
@@ -111,11 +117,13 @@ export default function ChatPage() {
         );
       });
 
-      // Always add message if this conversation is selected
-      setMessages(prev => {
-        if (prev.some(m => m.id === data.message.id)) return prev;
-        return [...prev, data.message];
-      });
+      // Add message only if this conversation is currently selected
+      if (selectedChatRef.current === data.conversationId) {
+        setMessages(prev => {
+          if (prev.some(m => m.id === data.message.id)) return prev;
+          return [...prev, data.message];
+        });
+      }
     });
 
     // Note: We don't listen for 'message:new' for sent messages

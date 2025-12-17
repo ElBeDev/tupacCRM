@@ -504,9 +504,15 @@ class WhatsAppService {
 
         // Emitir a frontend para actualización en tiempo real
         if (this.io) {
-          this.io.emit('message:new', {
+          this.io.emit('whatsapp:message', {
             conversationId,
-            message: savedMessage,
+            message: {
+              id: savedMessage.id,
+              content: savedMessage.content,
+              direction: 'outbound',
+              sentAt: savedMessage.sentAt?.toISOString() || new Date().toISOString(),
+              status: 'sent',
+            },
           });
         }
 
