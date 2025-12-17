@@ -38,6 +38,7 @@ import {
   Crown,
   LogOut,
   Kanban,
+  ShoppingCart,
 } from 'lucide-react';
 
 interface NavLink {
@@ -79,6 +80,7 @@ export default function NavbarCollapsable() {
     {
       title: 'Automatización',
       items: [
+        { name: 'Pedidos', href: '/dashboard/orders', icon: ShoppingCart },
         { name: 'Pipeline', href: '/dashboard/pipeline', icon: Kanban },
         { name: 'Smart Tags', href: '/dashboard/smart-tags', icon: Tag },
         { name: 'Campañas', href: '/dashboard/campaigns', icon: Megaphone },

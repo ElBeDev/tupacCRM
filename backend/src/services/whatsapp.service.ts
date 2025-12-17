@@ -402,10 +402,15 @@ class WhatsAppService {
               const assistantService = (await import('./assistant.service')).default;
               
               // Generar respuesta con el asistente (ahora con soporte multi-agente)
+              // Pasar contexto para crear pedidos automáticamente
               const response = await assistantService.generateResponse(
                 whatsAppAssistant.id,
                 messageContent,
-                detectedIntent // Pasar la intención para consultar especialistas
+                detectedIntent, // Pasar la intención para consultar especialistas
+                {
+                  contactId: contact.id,
+                  conversationId: conversation.id
+                }
               );
 
               if (response) {

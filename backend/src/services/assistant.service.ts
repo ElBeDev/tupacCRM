@@ -182,7 +182,12 @@ export class AssistantService {
    * Generate a response using the assistant (for WhatsApp auto-reply)
    * Now with multi-agent support - consults specialized agents when needed
    */
-  async generateResponse(assistantId: string, message: string, intent?: string): Promise<string | null> {
+  async generateResponse(
+    assistantId: string, 
+    message: string, 
+    intent?: string,
+    context?: { contactId?: string; conversationId?: string }
+  ): Promise<string | null> {
     if (!openai) {
       console.warn('OpenAI API key not configured');
       return null;
@@ -204,7 +209,7 @@ export class AssistantService {
       let enrichedContext = '';
       
       if (intent) {
-        const specialistResponse = await this.consultSpecialist(intent, message);
+        const specialistResponse = await this.consultSpecialist(intent, message, context);
         if (specialistResponse) {
           enrichedContext = `\n\n[INFORMACIÓN DEL ESPECIALISTA]:\n${specialistResponse}\n\n[Usá esta información para responder al cliente de forma natural, sin mencionar que consultaste a otro asistente]`;
         }
@@ -265,8 +270,9 @@ export class AssistantService {
 
   /**
    * Consultar a un asistente especializado según la intención detectada
+   * Si es un pedido válido, lo crea automáticamente en el sistema
    */
-  async consultSpecialist(intent: string, message: string): Promise<string | null> {
+  async consultSpecialist(intent: string, message: string, context?: { contactId?: string; conversationId?: string }): Promise<string | null> {
     if (!openai) return null;
 
     // Mapear intención a nombre del asistente especializado
@@ -275,6 +281,7 @@ export class AssistantService {
       'consulta_stock': 'Consultor de Stock',
       'pedido': 'Gestor de Pedidos',
       'pedido_incompleto': 'Gestor de Pedidos',
+      'confirmacion': 'Gestor de Pedidos',
       'reclamo': 'Gestor de Reclamos',
     };
 
@@ -305,8 +312,52 @@ export class AssistantService {
           { role: 'user', content: `El cliente escribió: "${message}"\n\nProporciona la información relevante para ayudar a responderle.` }
         ],
         temperature: 0.3,
-        max_tokens: 300,
+        max_tokens: 500,
+        response_format: specialistName === 'Gestor de Pedidos' ? { type: 'json_object' } : undefined,
       });
+
+      const specialistResponse = response.choices[0].message.content;
+      console.log(`✅ Specialist response: ${specialistResponse?.substring(0, 200)}...`);
+
+      // Si es el Gestor de Pedidos, intentar crear el pedido si es válido
+      if (specialistName === 'Gestor de Pedidos' && specialistResponse && context?.contactId && context?.conversationId) {
+        try {
+          const orderData = JSON.parse(specialistResponse);
+          
+          if (orderData.pedido_valido && orderData.productos && orderData.productos.length > 0) {
+            console.log('📦 Creating order from valid order data...');
+            
+            const orderService = (await import('./order.service')).default;
+            
+            const order = await orderService.createFromConversation({
+              contactId: context.contactId,
+              conversationId: context.conversationId,
+              items: orderData.productos.map((p: any) => ({
+                productName: p.nombre,
+                quantity: p.cantidad || 1,
+                notes: p.notas,
+              })),
+              notes: `Pedido por WhatsApp: ${orderData.resumen}`,
+            });
+
+            console.log(`✅ Order created: ${order.orderNumber}`);
+            
+            // Retornar info del pedido creado para que el asistente principal lo mencione
+            return `PEDIDO CREADO: Número de orden ${order.orderNumber}. Productos: ${orderData.productos.map((p: any) => `${p.cantidad}x ${p.nombre}`).join(', ')}. El cliente debe ser informado que su pedido fue registrado y será preparado.`;
+          } else if (!orderData.pedido_valido && orderData.faltantes && orderData.faltantes.length > 0) {
+            return `PEDIDO INCOMPLETO: Faltan datos para: ${orderData.faltantes.join(', ')}. Pedí al cliente que complete la información.`;
+          }
+        } catch (parseError) {
+          console.warn('Could not parse order data:', parseError);
+        }
+      }
+      
+      return specialistResponse;
+    } catch (error) {
+      console.error(`❌ Error consulting specialist ${specialistName}:`, error);
+      return null;
+    }
+  }
 
       const specialistResponse = response.choices[0].message.content;
       console.log(`✅ Specialist response: ${specialistResponse?.substring(0, 100)}...`);

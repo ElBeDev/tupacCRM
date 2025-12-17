@@ -7,6 +7,20 @@ const router = Router();
 // Todas las rutas requieren autenticación
 router.use(authenticate);
 
+// Helper para enviar mensaje WhatsApp
+async function sendWhatsAppNotification(phone: string, message: string, conversationId?: string | null) {
+  try {
+    // Importar el servicio de WhatsApp dinámicamente para evitar dependencias circulares
+    const { default: WhatsAppService } = await import('../services/whatsapp.service');
+    await WhatsAppService.sendMessage(phone, message, conversationId || undefined);
+    console.log(`✅ WhatsApp notification sent to ${phone}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending WhatsApp notification:', error);
+    return false;
+  }
+}
+
 /**
  * GET /api/orders
  * Listar todos los pedidos con filtros opcionales
@@ -181,12 +195,14 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Verificar que el pedido existe
     const existingOrder = await prisma.order.findUnique({
       where: { id },
-      include: { items: true },
+      include: { items: true, contact: true },
     });
 
     if (!existingOrder) {
       return res.status(404).json({ error: 'Order not found' });
     }
+
+    const previousStatus = existingOrder.status;
 
     // Preparar datos de actualización
     const updateData: any = {};
@@ -231,6 +247,40 @@ router.put('/:id', async (req: Request, res: Response) => {
         items: true,
       },
     });
+
+    // ========================================
+    // 📱 NOTIFICAR AL CLIENTE POR WHATSAPP
+    // ========================================
+    if (status && status !== previousStatus && order.contact.phone) {
+      let notificationMessage = '';
+      
+      switch (status) {
+        case 'CONFIRMED':
+          notificationMessage = `Tu pedido #${order.orderNumber} ha sido confirmado. Te avisamos cuando esté listo para retirar.`;
+          break;
+        case 'PREPARING':
+          notificationMessage = `Tu pedido #${order.orderNumber} está siendo preparado. Te avisamos apenas esté listo.`;
+          break;
+        case 'READY':
+          notificationMessage = `Tu pedido #${order.orderNumber} está listo para retirar. Te esperamos en el local. Trabajamos de lunes a viernes de 7 a 12 h y de 13 a 17 h, sábados de 7 a 16 h.`;
+          break;
+        case 'COMPLETED':
+          notificationMessage = `Gracias por tu compra. Tu pedido #${order.orderNumber} fue entregado. Te esperamos pronto.`;
+          break;
+        case 'CANCELLED':
+          notificationMessage = `Tu pedido #${order.orderNumber} fue cancelado. Si tenés dudas, escribinos.`;
+          break;
+      }
+
+      if (notificationMessage) {
+        console.log(`📱 Sending WhatsApp notification for order ${order.orderNumber} -> ${status}`);
+        await sendWhatsAppNotification(
+          order.contact.phone,
+          notificationMessage,
+          existingOrder.conversationId
+        );
+      }
+    }
 
     res.json(order);
   } catch (error) {
