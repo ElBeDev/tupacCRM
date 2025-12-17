@@ -45,11 +45,17 @@ export default function ConfigurationPage() {
   
   // WhatsApp State
   const [whatsappConnected, setWhatsappConnected] = useState(false);
-  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [hasQr, setHasQr] = useState(false);
+  const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
+
+  // Function to generate QR image URL
+  const generateQrImageUrl = (qrData: string): string => {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
+  };
 
   useEffect(() => {
     checkWhatsAppStatus();
@@ -64,14 +70,16 @@ export default function ConfigurationPage() {
 
     newSocket.on('whatsapp:qr', (data: { qr: string }) => {
       console.log('QR received');
-      setQrCode(data.qr);
+      setQrImageUrl(generateQrImageUrl(data.qr));
+      setHasQr(true);
       setWhatsappLoading(false);
     });
 
     newSocket.on('whatsapp:connected', (data: { phoneNumber: string }) => {
       console.log('WhatsApp connected!');
       setWhatsappConnected(true);
-      setQrCode(null);
+      setHasQr(false);
+      setQrImageUrl(null);
       setPhoneNumber(data.phoneNumber);
       setWhatsappLoading(false);
       onClose();
@@ -80,7 +88,8 @@ export default function ConfigurationPage() {
     newSocket.on('whatsapp:disconnected', () => {
       console.log('WhatsApp disconnected');
       setWhatsappConnected(false);
-      setQrCode(null);
+      setHasQr(false);
+      setQrImageUrl(null);
       setPhoneNumber(null);
     });
 
@@ -105,7 +114,8 @@ export default function ConfigurationPage() {
 
   const handleWhatsAppConnect = async () => {
     setWhatsappLoading(true);
-    setQrCode(null);
+    setHasQr(false);
+    setQrImageUrl(null);
     onOpen();
     try {
       await api.post('/whatsapp/connect');
@@ -121,7 +131,8 @@ export default function ConfigurationPage() {
     try {
       await api.post('/whatsapp/disconnect');
       setWhatsappConnected(false);
-      setQrCode(null);
+      setHasQr(false);
+      setQrImageUrl(null);
       setPhoneNumber(null);
     } catch (error) {
       console.error('Error disconnecting WhatsApp:', error);
@@ -294,16 +305,16 @@ export default function ConfigurationPage() {
                       border="2px solid"
                       borderColor="gray.200"
                     >
-                      {whatsappLoading && !qrCode ? (
+                      {whatsappLoading && !hasQr ? (
                         <VStack spacing={3}>
                           <Spinner size="xl" color="#9D39FE" thickness="4px" />
                           <Text fontSize="14px" color="gray.600">
                             Generando código QR...
                           </Text>
                         </VStack>
-                      ) : qrCode ? (
+                      ) : hasQr && qrImageUrl ? (
                         <Image
-                          src={qrCode}
+                          src={qrImageUrl}
                           alt="WhatsApp QR Code"
                           w="260px"
                           h="260px"
