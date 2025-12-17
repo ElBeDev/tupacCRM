@@ -181,8 +181,9 @@ export default function ChatPage() {
 
     try {
       const response = await api.post('/whatsapp/send', {
-        phone: selectedConversation.contactPhone,
+        to: selectedConversation.contactPhone,
         message: messageText,
+        conversationId: selectedConversation.id,
       });
 
       // Add message to UI immediately
