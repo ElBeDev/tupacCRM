@@ -363,12 +363,29 @@ export class AssistantService {
     if (!openai) throw new Error('OpenAI API key not configured');
     
     // Buscar asistente solo por ID - cualquier usuario autenticado puede probar
-    const assistant = await prisma.assistant.findFirst({
+    let assistant = await prisma.assistant.findFirst({
       where: { id: assistantId },
     });
     
-    if (!assistant || !assistant.openaiId) {
+    if (!assistant) {
       throw new Error('Assistant not found');
+    }
+    
+    // Si no tiene openaiId, crearlo en OpenAI automáticamente
+    if (!assistant.openaiId) {
+      console.log(`[Test] Creating OpenAI assistant for: ${assistant.name}`);
+      const openaiAssistant = await openai.beta.assistants.create({
+        name: assistant.name,
+        instructions: assistant.instructions,
+        model: assistant.model,
+        temperature: assistant.temperature,
+      });
+      
+      assistant = await prisma.assistant.update({
+        where: { id: assistantId },
+        data: { openaiId: openaiAssistant.id },
+      });
+      console.log(`[Test] OpenAI assistant created: ${openaiAssistant.id}`);
     }
 
     // Intentar parsear el mensaje por si contiene imágenes
