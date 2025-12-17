@@ -314,19 +314,19 @@ export class SmartTagService {
   async analyzeAndTagConversation(conversationId: string, message: string) {
     const intent = await this.detectIntent(message);
     
-    // Mapear intención a tags
+    // Mapear intención a tags (solo los necesarios para Tupac)
     const intentToTags: Record<string, string[]> = {
       'pedido': ['🛒 Pedido', '🔥 Hot Lead'],
-      'consulta_precio': ['💰 Consulta Precio', '🎯 Interesado'],
-      'consulta_stock': ['📦 Consulta Stock', '🎯 Interesado'],
-      'consulta_general': ['ℹ️ Info General'],
-      'reclamo': ['⚠️ Reclamo', '🚨 Urgente'],
-      'lista_precios': ['📋 Pidió Lista', '🎯 Interesado'],
+      'consulta_precio': ['💰 Consulta Precio'],
+      'consulta_stock': ['📦 Consulta Stock'],
+      'consulta_general': [],
+      'reclamo': ['⚠️ Reclamo'],
+      'lista_precios': ['📋 Pidió Lista'],
       'pedido_incompleto': ['🛒 Pedido', '⏳ Incompleto'],
       'fuera_horario': ['🌙 Fuera Horario'],
       'saludo': ['👋 Nuevo'],
       'confirmacion': ['✅ Confirmó'],
-      'despedida': ['👋 Cerrado'],
+      'despedida': [],
       'otro': []
     };
 
@@ -365,11 +365,6 @@ export class SmartTagService {
     const tagsToApply = intentToTags[intent.intencion] || [];
     const scoreIncrement = intentToScore[intent.intencion] || 0;
     const suggestedStatus = intentToStatus[intent.intencion] || 'NEW';
-    
-    // Agregar tag de prioridad si es alta
-    if (intent.prioridad === 'alta' && !tagsToApply.includes('🚨 Urgente')) {
-      tagsToApply.push('🔥 Prioridad Alta');
-    }
 
     // Buscar la conversación y su contacto
     const conversation = await prisma.conversation.findUnique({
