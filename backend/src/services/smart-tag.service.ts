@@ -316,12 +316,12 @@ export class SmartTagService {
     
     // Mapear intención a tags
     const intentToTags: Record<string, string[]> = {
-      'pedido': ['🛒 Pedido', 'Hot Lead'],
-      'consulta_precio': ['💰 Consulta Precio'],
-      'consulta_stock': ['📦 Consulta Stock'],
+      'pedido': ['🛒 Pedido', '🔥 Hot Lead'],
+      'consulta_precio': ['💰 Consulta Precio', '🎯 Interesado'],
+      'consulta_stock': ['📦 Consulta Stock', '🎯 Interesado'],
       'consulta_general': ['ℹ️ Info General'],
-      'reclamo': ['⚠️ Reclamo', 'Urgente'],
-      'lista_precios': ['📋 Pidió Lista'],
+      'reclamo': ['⚠️ Reclamo', '🚨 Urgente'],
+      'lista_precios': ['📋 Pidió Lista', '🎯 Interesado'],
       'pedido_incompleto': ['🛒 Pedido', '⏳ Incompleto'],
       'fuera_horario': ['🌙 Fuera Horario'],
       'saludo': ['👋 Nuevo'],
@@ -330,10 +330,44 @@ export class SmartTagService {
       'otro': []
     };
 
+    // Mapear intención a incremento de score (para calificar leads)
+    const intentToScore: Record<string, number> = {
+      'pedido': 30,           // Intención de compra = +30 puntos
+      'consulta_precio': 15,  // Pregunta precios = +15 puntos (interés medio-alto)
+      'consulta_stock': 15,   // Pregunta stock = +15 puntos (interés medio-alto)
+      'lista_precios': 10,    // Pide lista = +10 puntos (interés medio)
+      'pedido_incompleto': 20,// Pedido sin detalles = +20 puntos
+      'confirmacion': 25,     // Confirma algo = +25 puntos (avanza en el embudo)
+      'consulta_general': 5,  // Info general = +5 puntos (interés bajo)
+      'saludo': 5,            // Saludo inicial = +5 puntos
+      'reclamo': 0,           // Reclamo = no suma, pero requiere atención
+      'fuera_horario': 10,    // Fuera de horario pero contactó = +10
+      'despedida': 0,         // Despedida = no suma
+      'otro': 0
+    };
+
+    // Mapear intención a status del CRM
+    const intentToStatus: Record<string, string> = {
+      'pedido': 'QUALIFIED',      // Quiere comprar = Calificado
+      'consulta_precio': 'CONTACTED', // Pregunta = Contactado
+      'consulta_stock': 'CONTACTED',
+      'lista_precios': 'CONTACTED',
+      'pedido_incompleto': 'QUALIFIED',
+      'confirmacion': 'PROPOSAL',  // Confirma = En propuesta
+      'consulta_general': 'NEW',
+      'saludo': 'NEW',
+      'reclamo': 'CONTACTED',
+      'fuera_horario': 'CONTACTED',
+      'despedida': 'CONTACTED',
+      'otro': 'NEW'
+    };
+
     const tagsToApply = intentToTags[intent.intencion] || [];
+    const scoreIncrement = intentToScore[intent.intencion] || 0;
+    const suggestedStatus = intentToStatus[intent.intencion] || 'NEW';
     
     // Agregar tag de prioridad si es alta
-    if (intent.prioridad === 'alta' && !tagsToApply.includes('Urgente')) {
+    if (intent.prioridad === 'alta' && !tagsToApply.includes('🚨 Urgente')) {
       tagsToApply.push('🔥 Prioridad Alta');
     }
 
@@ -344,18 +378,37 @@ export class SmartTagService {
     });
 
     if (conversation && conversation.contact) {
-      const existingTags = conversation.contact.tags || [];
+      const contact = conversation.contact;
+      const existingTags = contact.tags || [];
       const newTags = Array.from(new Set([...existingTags, ...tagsToApply]));
       
+      // Calcular nuevo score (máximo 100)
+      const currentScore = contact.score || 0;
+      const newScore = Math.min(100, currentScore + scoreIncrement);
+      
+      // Solo actualizar status si el nuevo es "más avanzado" en el embudo
+      const statusOrder = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON'];
+      const currentStatusIndex = statusOrder.indexOf(contact.status);
+      const suggestedStatusIndex = statusOrder.indexOf(suggestedStatus);
+      const finalStatus = suggestedStatusIndex > currentStatusIndex ? suggestedStatus : contact.status;
+      
       await prisma.contact.update({
-        where: { id: conversation.contact.id },
-        data: { tags: newTags }
+        where: { id: contact.id },
+        data: { 
+          tags: newTags,
+          score: newScore,
+          status: finalStatus as any
+        }
       });
+
+      console.log(`🏷️ Contact ${contact.name}: Score ${currentScore}→${newScore}, Status: ${finalStatus}, Tags: +${tagsToApply.join(', ')}`);
     }
 
     return {
       intent,
       appliedTags: tagsToApply,
+      scoreIncrement,
+      suggestedStatus,
       conversationId
     };
   }
