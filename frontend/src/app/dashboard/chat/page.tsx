@@ -163,7 +163,7 @@ export default function ChatPage() {
   const loadMessages = async (conversationId: string) => {
     try {
       setLoadingMessages(true);
-      const response = await api.get(\`/conversations/\${conversationId}/messages\`);
+      const response = await api.get(`/conversations/${conversationId}/messages`);
       setMessages(response.data);
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -228,9 +228,9 @@ export default function ChatPage() {
     const days = Math.floor(diff / 86400000);
 
     if (minutes < 1) return 'Ahora';
-    if (minutes < 60) return \`\${minutes}m\`;
-    if (hours < 24) return \`\${hours}h\`;
-    if (days < 7) return \`\${days}d\`;
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
     return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
   };
 
@@ -341,7 +341,7 @@ export default function ChatPage() {
                   <Avatar
                     size="md"
                     name={conv.contactName}
-                    src={\`https://api.dicebear.com/7.x/avataaars/svg?seed=\${conv.contactPhone}\`}
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.contactPhone}`}
                   />
                   {conv.channel === 'whatsapp' && (
                     <Box
@@ -412,7 +412,7 @@ export default function ChatPage() {
                 <Avatar
                   size="sm"
                   name={selectedConversation.contactName}
-                  src={\`https://api.dicebear.com/7.x/avataaars/svg?seed=\${selectedConversation.contactPhone}\`}
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedConversation.contactPhone}`}
                 />
                 <Box>
                   <Text fontWeight="600" color="gray.800" fontSize="sm">
