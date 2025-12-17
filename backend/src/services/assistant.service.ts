@@ -180,8 +180,9 @@ export class AssistantService {
 
   /**
    * Generate a response using the assistant (for WhatsApp auto-reply)
+   * Now with multi-agent support - consults specialized agents when needed
    */
-  async generateResponse(assistantId: string, message: string): Promise<string | null> {
+  async generateResponse(assistantId: string, message: string, intent?: string): Promise<string | null> {
     if (!openai) {
       console.warn('OpenAI API key not configured');
       return null;
@@ -197,13 +198,29 @@ export class AssistantService {
     }
 
     try {
+      // ========================================
+      // 🤖 MULTI-AGENT: Consultar especialistas según intención
+      // ========================================
+      let enrichedContext = '';
+      
+      if (intent) {
+        const specialistResponse = await this.consultSpecialist(intent, message);
+        if (specialistResponse) {
+          enrichedContext = `\n\n[INFORMACIÓN DEL ESPECIALISTA]:\n${specialistResponse}\n\n[Usá esta información para responder al cliente de forma natural, sin mencionar que consultaste a otro asistente]`;
+        }
+      }
+
       // Create a new thread for this conversation
       const thread = await openai.beta.threads.create();
 
-      // Add the user message
+      // Add the user message with enriched context if available
+      const finalMessage = enrichedContext 
+        ? `${message}${enrichedContext}`
+        : message;
+
       await openai.beta.threads.messages.create(thread.id, {
         role: 'user',
-        content: message,
+        content: finalMessage,
       });
 
       // Run the assistant
@@ -242,6 +259,61 @@ export class AssistantService {
       return null;
     } catch (error) {
       console.error('Error generating response:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Consultar a un asistente especializado según la intención detectada
+   */
+  async consultSpecialist(intent: string, message: string): Promise<string | null> {
+    if (!openai) return null;
+
+    // Mapear intención a nombre del asistente especializado
+    const intentToSpecialist: Record<string, string> = {
+      'consulta_precio': 'Consultor de Precios',
+      'consulta_stock': 'Consultor de Stock',
+      'pedido': 'Gestor de Pedidos',
+      'pedido_incompleto': 'Gestor de Pedidos',
+      'reclamo': 'Gestor de Reclamos',
+    };
+
+    const specialistName = intentToSpecialist[intent];
+    if (!specialistName) {
+      console.log(`🔍 No specialist needed for intent: ${intent}`);
+      return null;
+    }
+
+    // Buscar el asistente especializado
+    const specialist = await prisma.assistant.findFirst({
+      where: { name: specialistName },
+    });
+
+    if (!specialist) {
+      console.warn(`⚠️ Specialist "${specialistName}" not found`);
+      return null;
+    }
+
+    console.log(`🔗 Consulting specialist: ${specialistName} for intent: ${intent}`);
+
+    try {
+      // Usar Chat Completions para consulta rápida (sin threads)
+      const response = await openai.chat.completions.create({
+        model: specialist.model || 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: specialist.instructions },
+          { role: 'user', content: `El cliente escribió: "${message}"\n\nProporciona la información relevante para ayudar a responderle.` }
+        ],
+        temperature: 0.3,
+        max_tokens: 300,
+      });
+
+      const specialistResponse = response.choices[0].message.content;
+      console.log(`✅ Specialist response: ${specialistResponse?.substring(0, 100)}...`);
+      
+      return specialistResponse;
+    } catch (error) {
+      console.error(`❌ Error consulting specialist ${specialistName}:`, error);
       return null;
     }
   }

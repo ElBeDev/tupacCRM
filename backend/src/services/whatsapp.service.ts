@@ -348,12 +348,17 @@ class WhatsAppService {
           // ========================================
           // 🏷️ SMART TAGS - Auto-detect intent and apply tags
           // ========================================
+          let detectedIntent: string | undefined;
+          
           try {
             console.log('🏷️ Detecting intent with Smart Tags...');
             const intentResult = await this.smartTagService.analyzeAndTagConversation(
               conversation.id,
               messageContent
             );
+
+            // Guardar la intención para usarla en multi-agente
+            detectedIntent = intentResult.intent.intencion;
 
             console.log('🎯 Intent detected:', {
               intencion: intentResult.intent.intencion,
@@ -378,7 +383,7 @@ class WhatsAppService {
           }
 
           // ========================================
-          // 🤖 AUTO-RESPUESTA CON ASISTENTE
+          // 🤖 AUTO-RESPUESTA CON ASISTENTE MULTI-AGENTE
           // ========================================
           try {
             // Buscar asistente configurado para responder WhatsApp
@@ -391,14 +396,16 @@ class WhatsAppService {
 
             if (whatsAppAssistant && whatsAppAssistant.openaiId) {
               console.log(`🤖 Using assistant "${whatsAppAssistant.name}" for auto-reply`);
+              console.log(`🔗 Multi-agent mode: Will consult specialists for intent "${detectedIntent}"`);
               
               // Importar y usar el servicio de asistentes
               const assistantService = (await import('./assistant.service')).default;
               
-              // Generar respuesta con el asistente
+              // Generar respuesta con el asistente (ahora con soporte multi-agente)
               const response = await assistantService.generateResponse(
                 whatsAppAssistant.id,
-                messageContent
+                messageContent,
+                detectedIntent // Pasar la intención para consultar especialistas
               );
 
               if (response) {
