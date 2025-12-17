@@ -213,7 +213,7 @@ export default function NavbarCollapsable() {
       {isExpanded && (
         <Box borderTop="1px" borderColor="gray.200" p={4}>
           {/* Usuario */}
-          <Link href="/dashboard/account">
+          <Link href="/dashboard/settings">
             <Flex
               align="center"
               p={2}
@@ -252,7 +252,7 @@ export default function NavbarCollapsable() {
       {/* Versión compacta del footer */}
       {!isExpanded && (
         <Box borderTop="1px" borderColor="gray.200" p={2}>
-          <Link href="/dashboard/account">
+          <Link href="/dashboard/settings">
             <Flex justify="center" mb={2}>
               <Avatar size="sm" name="Usuario" bg="brand.500" />
             </Flex>

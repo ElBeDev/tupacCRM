@@ -15,16 +15,9 @@ export default function WhatsAppPage() {
 
   // Función para obtener el QR como imagen
   const fetchQrImage = useCallback(async (qr: string) => {
-    try {
-      const response = await api.get('/whatsapp/qr');
-      if (response.data.qrImage) {
-        setQrImage(response.data.qrImage);
-      }
-    } catch (error) {
-      console.error('Error fetching QR image:', error);
-      // Fallback: usar API externa
-      setQrImage(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
-    }
+    // Usar directamente la API externa de QR para evitar problemas
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
+    setQrImage(qrUrl);
   }, []);
 
   useEffect(() => {
