@@ -6,18 +6,20 @@ import { io, Socket } from 'socket.io-client';
 
 export default function WhatsAppPage() {
   const [connected, setConnected] = useState(false);
-  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [hasQr, setHasQr] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
 
-  // Función para obtener el QR como imagen
-  const fetchQrImage = useCallback(async (qr: string) => {
-    // Usar directamente la API externa de QR para evitar problemas
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
+  // Función para generar la URL del QR como imagen
+  const generateQrImageUrl = useCallback((qr: string) => {
+    // Usar la API externa de QR con encoding apropiado
+    const encodedQr = encodeURIComponent(qr);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedQr}`;
     setQrImage(qrUrl);
+    setHasQr(true);
   }, []);
 
   useEffect(() => {
@@ -41,19 +43,18 @@ export default function WhatsAppPage() {
       setStatusMessage('Conexión perdida, reconectando...');
     });
 
-    newSocket.on('whatsapp:qr', async (data: { qr: string }) => {
+    newSocket.on('whatsapp:qr', (data: { qr: string }) => {
       console.log('QR received via socket');
-      setQrCode(data.qr);
       setLoading(false);
       setStatusMessage('Escanea el código QR');
-      // Obtener imagen del QR
-      await fetchQrImage(data.qr);
+      // Generar URL de imagen del QR
+      generateQrImageUrl(data.qr);
     });
 
     newSocket.on('whatsapp:connected', (data: { phoneNumber: string }) => {
       console.log('WhatsApp connected!', data.phoneNumber);
       setConnected(true);
-      setQrCode(null);
+      setHasQr(false);
       setQrImage(null);
       setPhoneNumber(data.phoneNumber);
       setLoading(false);
@@ -63,7 +64,7 @@ export default function WhatsAppPage() {
     newSocket.on('whatsapp:disconnected', (data: { reason?: number }) => {
       console.log('WhatsApp disconnected', data);
       setConnected(false);
-      setQrCode(null);
+      setHasQr(false);
       setQrImage(null);
       setPhoneNumber(null);
       setStatusMessage('WhatsApp desconectado');
@@ -90,15 +91,14 @@ export default function WhatsAppPage() {
     return () => {
       newSocket.close();
     };
-  }, [fetchQrImage]);
+  }, [generateQrImageUrl]);
 
   const checkStatus = async () => {
     try {
       const response = await api.get('/whatsapp/status');
       setConnected(response.data.connected);
       if (response.data.qrCode) {
-        setQrCode(response.data.qrCode);
-        await fetchQrImage(response.data.qrCode);
+        generateQrImageUrl(response.data.qrCode);
       }
     } catch (error) {
       console.error('Error checking status:', error);
@@ -120,7 +120,8 @@ export default function WhatsAppPage() {
     try {
       await api.post('/whatsapp/disconnect');
       setConnected(false);
-      setQrCode(null);
+      setHasQr(false);
+      setQrImage(null);
       setPhoneNumber(null);
     } catch (error) {
       console.error('Error disconnecting:', error);
@@ -176,7 +177,7 @@ export default function WhatsAppPage() {
           </div>
         </div>
 
-        {qrCode && !connected && (
+        {hasQr && !connected && (
           <div className="mt-6 text-center bg-gray-50 rounded-lg p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Escanea el código QR con tu WhatsApp
@@ -240,7 +241,7 @@ export default function WhatsAppPage() {
           </div>
         )}
 
-        {!connected && !qrCode && !loading && (
+        {!connected && !hasQr && !loading && (
           <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex items-start">
               <svg
