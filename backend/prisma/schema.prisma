@@ -28,6 +28,7 @@ model User {
   conversations Conversation[] @relation("AssignedConversations")
   messages      Message[]      @relation("AgentMessages")
   campaigns     Campaign[]     @relation("CampaignCreator")
+  tickets       Ticket[]       @relation("AssignedTickets")
   
   @@map("users")
 }
@@ -58,6 +59,7 @@ model Contact {
   assignedTo    User?          @relation("AssignedContacts", fields: [assignedToId], references: [id])
   conversations Conversation[]
   orders        Order[]
+  tickets       Ticket[]
   
   @@map("contacts")
 }
@@ -99,6 +101,7 @@ model Conversation {
   assignedTo    User?              @relation("AssignedConversations", fields: [assignedToId], references: [id])
   messages      Message[]
   orders        Order[]
+  tickets       Ticket[]
   
   @@map("conversations")
 }
@@ -326,4 +329,52 @@ model OrderItem {
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   
   @@map("order_items")
+}
+
+// Ticket Model (Reclamos, Quejas, Consultas)
+model Ticket {
+  id              String        @id @default(uuid())
+  ticketNumber    String        @unique
+  contactId       String
+  conversationId  String?
+  type            TicketType    @default(COMPLAINT)
+  status          TicketStatus  @default(OPEN)
+  priority        TicketPriority @default(MEDIUM)
+  subject         String
+  description     String?       @db.Text
+  resolution      String?       @db.Text
+  assignedToId    String?
+  resolvedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation    Conversation? @relation(fields: [conversationId], references: [id])
+  assignedTo      User?         @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  
+  @@map("tickets")
+}
+
+enum TicketType {
+  COMPLAINT     // Reclamo
+  QUESTION      // Consulta
+  RETURN        // Devolución
+  EXCHANGE      // Cambio
+  OTHER         // Otro
+}
+
+enum TicketStatus {
+  OPEN          // Abierto
+  IN_PROGRESS   // En progreso
+  PENDING       // Pendiente de respuesta
+  RESOLVED      // Resuelto
+  CLOSED        // Cerrado
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }

@@ -352,6 +352,30 @@ export class AssistantService {
         }
       }
       
+      // Si es el Gestor de Reclamos, crear un ticket automáticamente
+      if (specialistName === 'Gestor de Reclamos' && context?.contactId) {
+        try {
+          const { ticketService } = await import('./ticket.service');
+          
+          // Crear ticket para este reclamo
+          const ticket = await ticketService.createFromConversation({
+            contactId: context.contactId,
+            conversationId: context.conversationId,
+            type: 'COMPLAINT',
+            subject: `Reclamo: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`,
+            description: message,
+            priority: 'MEDIUM',
+          });
+
+          console.log(`📋 Ticket created: ${ticket.ticketNumber}`);
+          
+          // Agregar info del ticket a la respuesta
+          return `${specialistResponse}\n\n[TICKET CREADO: ${ticket.ticketNumber}]`;
+        } catch (ticketError) {
+          console.warn('Could not create ticket:', ticketError);
+        }
+      }
+      
       return specialistResponse;
     } catch (error) {
       console.error(`❌ Error consulting specialist ${specialistName}:`, error);
