@@ -14,6 +14,7 @@ export interface CreateAssistantDTO {
   top_p?: number;
   tools?: any[];
   fileIds?: string[];
+  isWhatsAppResponder?: boolean;
 }
 
 export class AssistantService {
@@ -51,6 +52,7 @@ export class AssistantService {
           tools: data.tools || [],
           fileIds: data.fileIds || [],
           isActive: true,
+          isWhatsAppResponder: data.isWhatsAppResponder || false,
         },
       });
 
@@ -148,6 +150,7 @@ export class AssistantService {
         temperature: data.temperature,
         tools: data.tools,
         fileIds: data.fileIds,
+        isWhatsAppResponder: data.isWhatsAppResponder,
       },
     });
     
@@ -175,6 +178,73 @@ export class AssistantService {
     return { success: true };
   }
 
+  /**
+   * Generate a response using the assistant (for WhatsApp auto-reply)
+   */
+  async generateResponse(assistantId: string, message: string): Promise<string | null> {
+    if (!openai) {
+      console.warn('OpenAI API key not configured');
+      return null;
+    }
+
+    const assistant = await prisma.assistant.findUnique({
+      where: { id: assistantId },
+    });
+
+    if (!assistant || !assistant.openaiId) {
+      console.warn('Assistant not found or no OpenAI ID');
+      return null;
+    }
+
+    try {
+      // Create a new thread for this conversation
+      const thread = await openai.beta.threads.create();
+
+      // Add the user message
+      await openai.beta.threads.messages.create(thread.id, {
+        role: 'user',
+        content: message,
+      });
+
+      // Run the assistant
+      const run = await openai.beta.threads.runs.create(thread.id, {
+        assistant_id: assistant.openaiId,
+      });
+
+      // Wait for completion (with timeout)
+      let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds timeout
+
+      while (runStatus.status !== 'completed' && attempts < maxAttempts) {
+        if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
+          console.error('Assistant run failed:', runStatus.status);
+          return null;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+        attempts++;
+      }
+
+      if (runStatus.status !== 'completed') {
+        console.error('Assistant run timed out');
+        return null;
+      }
+
+      // Get the assistant's response
+      const messages = await openai.beta.threads.messages.list(thread.id);
+      const assistantMessage = messages.data.find(m => m.role === 'assistant');
+
+      if (assistantMessage && assistantMessage.content[0].type === 'text') {
+        return assistantMessage.content[0].text.value;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error generating response:', error);
+      return null;
+    }
+  }
   async testAssistant(assistantId: string, userId: string, message: string) {
     if (!openai) throw new Error('OpenAI API key not configured');
     

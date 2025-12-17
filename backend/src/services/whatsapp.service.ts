@@ -377,14 +377,43 @@ class WhatsAppService {
             // Continue even if smart tags fail
           }
 
-          // Auto-respuesta si está habilitada
+          // ========================================
+          // 🤖 AUTO-RESPUESTA CON ASISTENTE
+          // ========================================
           try {
-            const config = await prisma.aIConfig.findFirst({ where: { isActive: true } });
-            if (config?.autoReply && aiAnalysis.suggestedResponse) {
-              console.log('🤖 Enviando respuesta automática...');
-              // Usar el JID completo (from) en lugar de solo el número
-              await this.sendMessage(from, aiAnalysis.suggestedResponse, conversation.id);
-              console.log('✅ Respuesta automática enviada');
+            // Buscar asistente configurado para responder WhatsApp
+            const whatsAppAssistant = await prisma.assistant.findFirst({
+              where: { 
+                isWhatsAppResponder: true,
+                isActive: true
+              }
+            });
+
+            if (whatsAppAssistant && whatsAppAssistant.openaiId) {
+              console.log(`🤖 Using assistant "${whatsAppAssistant.name}" for auto-reply`);
+              
+              // Importar y usar el servicio de asistentes
+              const assistantService = (await import('./assistant.service')).default;
+              
+              // Generar respuesta con el asistente
+              const response = await assistantService.generateResponse(
+                whatsAppAssistant.id,
+                messageContent
+              );
+
+              if (response) {
+                console.log('🤖 Enviando respuesta automática del asistente...');
+                await this.sendMessage(from, response, conversation.id);
+                console.log('✅ Respuesta automática enviada:', response.substring(0, 100) + '...');
+              }
+            } else {
+              // Fallback: usar AIConfig si no hay asistente configurado
+              const config = await prisma.aIConfig.findFirst({ where: { isActive: true } });
+              if (config?.autoReply && aiAnalysis.suggestedResponse) {
+                console.log('🤖 Enviando respuesta automática (AIConfig)...');
+                await this.sendMessage(from, aiAnalysis.suggestedResponse, conversation.id);
+                console.log('✅ Respuesta automática enviada');
+              }
             }
           } catch (autoReplyError) {
             console.error('❌ Error en auto-respuesta:', autoReplyError);

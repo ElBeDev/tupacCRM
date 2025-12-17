@@ -8,7 +8,7 @@ const router = Router();
 router.post('/', authenticate, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const { name, description, instructions, model, temperature, tools, fileIds } = req.body;
+    const { name, description, instructions, model, temperature, tools, fileIds, isWhatsAppResponder } = req.body;
 
     if (!name || !instructions) {
       return res.status(400).json({ error: 'Name and instructions are required' });
@@ -22,6 +22,7 @@ router.post('/', authenticate, async (req, res) => {
       temperature,
       tools,
       fileIds,
+      isWhatsAppResponder,
     });
 
     res.status(201).json(assistant);
@@ -85,7 +86,7 @@ router.put('/:id', authenticate, async (req, res) => {
   try {
     const userId = req.user!.userId;
     const { id } = req.params;
-    const { name, description, instructions, model, temperature, tools, fileIds } = req.body;
+    const { name, description, instructions, model, temperature, tools, fileIds, isWhatsAppResponder } = req.body;
 
     const assistant = await assistantService.updateAssistant(id, userId, {
       name,
@@ -95,6 +96,7 @@ router.put('/:id', authenticate, async (req, res) => {
       temperature,
       tools,
       fileIds,
+      isWhatsAppResponder,
     });
 
     res.json(assistant);

@@ -226,20 +226,21 @@ model AIConfig {
 
 // Assistant Model (OpenAI Assistants)
 model Assistant {
-  id              String    @id @default(uuid())
-  userId          String
-  name            String
-  description     String?   @db.Text
-  instructions    String    @db.Text
-  model           String    @default("gpt-4-turbo-preview")
-  temperature     Float     @default(0.7)
-  openaiId        String?   @unique // ID del asistente en OpenAI
-  tools           Json?     // Herramientas habilitadas (code_interpreter, retrieval, function)
-  fileIds         String[]  // IDs de archivos asociados
-  metadata        Json?
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                   String    @id @default(uuid())
+  userId               String
+  name                 String
+  description          String?   @db.Text
+  instructions         String    @db.Text
+  model                String    @default("gpt-4-turbo-preview")
+  temperature          Float     @default(0.7)
+  openaiId             String?   @unique // ID del asistente en OpenAI
+  tools                Json?     // Herramientas habilitadas (code_interpreter, retrieval, function)
+  fileIds              String[]  // IDs de archivos asociados
+  metadata             Json?
+  isActive             Boolean   @default(true)
+  isWhatsAppResponder  Boolean   @default(false) // Si responde automáticamente en WhatsApp
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
   
   // Relations
   testMessages    AssistantTestMessage[]

@@ -41,6 +41,7 @@ import {
   Image,
   Grid,
   GridItem,
+  Switch,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import {
@@ -84,6 +85,7 @@ interface Assistant {
   model: string;
   temperature: number;
   isActive: boolean;
+  isWhatsAppResponder: boolean;
   createdAt: string;
   openaiId?: string;
 }
@@ -154,6 +156,7 @@ export default function AssistantsPage() {
   const [editInstructions, setEditInstructions] = useState('');
   const [editModel, setEditModel] = useState('gpt-4o');
   const [editTemperature, setEditTemperature] = useState(0.7);
+  const [editWhatsAppResponder, setEditWhatsAppResponder] = useState(false);
   
   // Estados para imágenes
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -166,6 +169,7 @@ export default function AssistantsPage() {
   const [assistantInstructions, setAssistantInstructions] = useState('');
   const [assistantModel, setAssistantModel] = useState('gpt-4o');
   const [assistantTemperature, setAssistantTemperature] = useState(0.7);
+  const [assistantWhatsAppResponder, setAssistantWhatsAppResponder] = useState(false);
 
   // Scroll to bottom cuando hay nuevos mensajes
   const scrollToBottom = useCallback(() => {
@@ -246,6 +250,7 @@ export default function AssistantsPage() {
     setAssistantInstructions('');
     setAssistantModel('gpt-4o');
     setAssistantTemperature(0.7);
+    setAssistantWhatsAppResponder(false);
   };
 
   const createAssistant = async () => {
@@ -274,6 +279,7 @@ export default function AssistantsPage() {
           instructions: assistantInstructions,
           model: assistantModel,
           temperature: assistantTemperature,
+          isWhatsAppResponder: assistantWhatsAppResponder,
         }),
       });
 
@@ -513,6 +519,7 @@ export default function AssistantsPage() {
     setEditInstructions(selectedAssistant.instructions);
     setEditModel(selectedAssistant.model);
     setEditTemperature(selectedAssistant.temperature);
+    setEditWhatsAppResponder(selectedAssistant.isWhatsAppResponder || false);
     onEditOpen();
   };
 
@@ -545,6 +552,7 @@ export default function AssistantsPage() {
             instructions: editInstructions,
             model: editModel,
             temperature: editTemperature,
+            isWhatsAppResponder: editWhatsAppResponder,
           }),
         }
       );
@@ -1218,6 +1226,29 @@ export default function AssistantsPage() {
                   <Text fontSize="xs" color="gray.500">Creativo</Text>
                 </HStack>
               </FormControl>
+
+              {/* WhatsApp Auto-responder Toggle */}
+              <FormControl>
+                <HStack justify="space-between" p={4} bg="green.50" borderRadius="xl" border="1px" borderColor="green.200">
+                  <VStack align="start" spacing={0}>
+                    <HStack>
+                      <Text fontSize="sm" fontWeight="medium">📱 Responder WhatsApp</Text>
+                      {assistantWhatsAppResponder && (
+                        <Badge colorScheme="green" fontSize="2xs" borderRadius="full">Activo</Badge>
+                      )}
+                    </HStack>
+                    <Text fontSize="xs" color="gray.600">
+                      Este asistente responderá automáticamente los mensajes de WhatsApp
+                    </Text>
+                  </VStack>
+                  <Switch
+                    colorScheme="green"
+                    size="lg"
+                    isChecked={assistantWhatsAppResponder}
+                    onChange={(e) => setAssistantWhatsAppResponder(e.target.checked)}
+                  />
+                </HStack>
+              </FormControl>
             </VStack>
           </ModalBody>
 
@@ -1368,6 +1399,29 @@ export default function AssistantsPage() {
                 <HStack justify="space-between" mt={1}>
                   <Text fontSize="xs" color="gray.500">Preciso</Text>
                   <Text fontSize="xs" color="gray.500">Creativo</Text>
+                </HStack>
+              </FormControl>
+
+              {/* WhatsApp Auto-responder Toggle */}
+              <FormControl>
+                <HStack justify="space-between" p={4} bg="green.50" borderRadius="xl" border="1px" borderColor="green.200">
+                  <VStack align="start" spacing={0}>
+                    <HStack>
+                      <Text fontSize="sm" fontWeight="medium">📱 Responder WhatsApp</Text>
+                      {editWhatsAppResponder && (
+                        <Badge colorScheme="green" fontSize="2xs" borderRadius="full">Activo</Badge>
+                      )}
+                    </HStack>
+                    <Text fontSize="xs" color="gray.600">
+                      Este asistente responderá automáticamente los mensajes de WhatsApp
+                    </Text>
+                  </VStack>
+                  <Switch
+                    colorScheme="green"
+                    size="lg"
+                    isChecked={editWhatsAppResponder}
+                    onChange={(e) => setEditWhatsAppResponder(e.target.checked)}
+                  />
                 </HStack>
               </FormControl>
             </VStack>
