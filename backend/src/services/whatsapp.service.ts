@@ -235,13 +235,22 @@ class WhatsAppService {
             data: {
               name: message.pushName || phoneNumber,
               phone: phoneNumber,
+              whatsappJid: from, // Save full JID for replies
               source: 'WHATSAPP',
               status: 'NEW',
               assignedToId: assignUser?.id, // Auto-assign to first admin/manager
             },
           });
           
-          console.log(`👤 New contact auto-assigned to user: ${assignUser?.email || 'none'}`);
+          console.log(`👤 New contact auto-assigned to user: ${assignUser?.email || 'none'}, JID: ${from}`);
+        } else if (!contact.whatsappJid) {
+          // Update existing contact with JID if missing
+          await prisma.contact.update({
+            where: { id: contact.id },
+            data: { whatsappJid: from }
+          });
+          contact.whatsappJid = from;
+          console.log(`📝 Updated contact ${contact.name} with JID: ${from}`);
         }
 
         // Find or create conversation
@@ -416,9 +425,31 @@ class WhatsAppService {
     }
 
     try {
-      const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+      // Try to find the correct JID from contact
+      let jid: string;
+      
+      if (to.includes('@')) {
+        // Already a full JID
+        jid = to;
+      } else {
+        // Look up the contact's stored JID
+        const contact = await prisma.contact.findUnique({ 
+          where: { phone: to },
+          select: { whatsappJid: true }
+        });
+        
+        if (contact?.whatsappJid) {
+          jid = contact.whatsappJid;
+          console.log(`📱 Using stored JID: ${jid}`);
+        } else {
+          // Fallback to standard format
+          jid = `${to}@s.whatsapp.net`;
+          console.log(`📱 Using default JID format: ${jid}`);
+        }
+      }
+      
       await this.sock.sendMessage(jid, { text: message });
-      console.log(`✅ Message sent to ${to}`);
+      console.log(`✅ Message sent to ${jid}`);
 
       // Guardar mensaje en DB y emitir Socket.IO
       if (conversationId) {

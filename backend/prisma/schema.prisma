@@ -44,6 +44,7 @@ model Contact {
   name          String
   email         String?
   phone         String?        @unique
+  whatsappJid   String?        // Full WhatsApp JID (e.g., 123456@lid or 123456@s.whatsapp.net)
   source        Source         @default(MANUAL)
   status        ContactStatus  @default(NEW)
   score         Int            @default(0)
