@@ -100,7 +100,7 @@ export default function ChatPage() {
               ...conv,
               lastMessage: data.message.content,
               lastMessageAt: data.message.sentAt,
-              unreadCount: selectedChat === data.conversationId ? 0 : conv.unreadCount + 1,
+              unreadCount: conv.unreadCount + 1,
             };
           }
           return conv;
@@ -111,10 +111,20 @@ export default function ChatPage() {
         );
       });
 
-      // If this conversation is selected, add the message
-      if (selectedChat === data.conversationId) {
-        setMessages(prev => [...prev, data.message]);
-      }
+      // Always add message if this conversation is selected
+      setMessages(prev => {
+        if (prev.some(m => m.id === data.message.id)) return prev;
+        return [...prev, data.message];
+      });
+    });
+
+    // Also listen for sent messages
+    newSocket.on('message:new', (data: { conversationId: string; message: Message }) => {
+      console.log('Sent message update:', data);
+      setMessages(prev => {
+        if (prev.some(m => m.id === data.message.id)) return prev;
+        return [...prev, data.message];
+      });
     });
 
     setSocket(newSocket);

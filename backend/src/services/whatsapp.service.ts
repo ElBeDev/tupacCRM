@@ -397,11 +397,15 @@ class WhatsAppService {
 
         // Emit to frontend via Socket.IO
         if (this.io) {
-          this.io.emit('message:new', {
-            contactId: contact.id,
+          this.io.emit('whatsapp:message', {
             conversationId: conversation.id,
-            content: messageContent,
-            from: phoneNumber,
+            message: {
+              id: savedMessage.id,
+              content: messageContent,
+              direction: 'inbound',
+              sentAt: savedMessage.sentAt?.toISOString() || new Date().toISOString(),
+              status: 'received',
+            },
           });
         }
 
