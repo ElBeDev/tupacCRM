@@ -67,6 +67,7 @@ export default function NavbarCollapsable() {
   const mainLinks: NavLink[] = [
     { name: 'Inicio', href: '/dashboard', icon: Home },
     { name: 'Chats', href: '/dashboard/chat', icon: MessageSquare },
+    { name: 'Pedidos', href: '/dashboard/orders', icon: ShoppingCart },
     { name: 'Configuración', href: '/dashboard/configuration', icon: Settings },
   ];
 
@@ -81,7 +82,6 @@ export default function NavbarCollapsable() {
     {
       title: 'Automatización',
       items: [
-        { name: 'Pedidos', href: '/dashboard/orders', icon: ShoppingCart },
         { name: 'Reclamos', href: '/dashboard/tickets', icon: Ticket },
         { name: 'Pipeline', href: '/dashboard/pipeline', icon: Kanban },
         { name: 'Smart Tags', href: '/dashboard/smart-tags', icon: Tag },

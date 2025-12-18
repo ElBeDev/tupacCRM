@@ -1123,7 +1123,93 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 
 **Nota**: Este es un documento vivo que se irá actualizando conforme avance el proyecto. Cada feature completada se marcará con ✅.
 
-**Última actualización**: 13 de Diciembre, 2024
+**Última actualización**: 18 de Diciembre, 2024
+
+---
+
+## 📅 Sesión 18 de Diciembre, 2024 - Vision Support para Pedidos por Imagen
+
+### Resumen de la Sesión
+Se implementó soporte completo para que el asistente pueda leer y procesar imágenes de pedidos enviadas por WhatsApp, usando GPT-4o Vision.
+
+### Problema Identificado
+**Síntoma**: El cliente enviaba una foto de su pedido escrito (lista de productos) pero el asistente no la leía, solo pedía los detalles por texto.
+
+**Causa Raíz**: 
+1. ✅ El código de Vision estaba implementado correctamente (`whatsapp.service.ts` + `assistant.service.ts`)
+2. ✅ Las imágenes se descargaban y convertían a base64 correctamente
+3. ❌ **El prompt del asistente NO tenía instrucciones sobre cómo manejar imágenes**
+
+### Solución Implementada
+
+**1. Actualización del Prompt del Asistente** (`tupac-atencion-cliente.txt`):
+```
+A.1) Si el cliente envía una IMAGEN con el pedido (foto de hoja, lista escrita, etc.):
+IMPORTANTE: Podés ver y leer imágenes. Cuando el cliente envía una foto de una lista o pedido:
+- Leé TODO el contenido de la imagen con atención
+- Extraé cada producto, marca, presentación y cantidad que puedas identificar
+- Si algún producto no tiene marca clara, preguntá solo por esos específicos
+- Confirmá al cliente lo que leíste de la imagen para verificar
+
+Respuesta modelo:
+"Perfecto, leí tu pedido de la imagen. Esto es lo que tenés anotado: [listar productos con cantidades y marcas que pudiste leer]. ¿Está todo bien o hay algo que corregir?"
+
+Si la imagen no es legible o está borrosa:
+"No pude leer bien la imagen. ¿Podrías pasarme el pedido por texto o mandar una foto más clara?"
+```
+
+**2. Deployment de Cambios al VPS**:
+```bash
+# 1. Copiar prompt actualizado al servidor
+scp backend/src/prompts/tupac-atencion-cliente.txt root@72.62.11.244:/var/www/tupaccrm/backend/src/prompts/
+
+# 2. Actualizar base de datos con nuevo prompt
+docker exec -i tupaccrm-postgres psql -U postgres -d tupaccrm -c "UPDATE assistants SET instructions = '...' WHERE name = 'Tupac - Atencion al Cliente';"
+
+# 3. Reiniciar backend para aplicar cambios
+docker restart tupaccrm-backend
+```
+
+**3. Verificación de Implementación**:
+- ✅ Vision code ya estaba implementado desde sesión anterior
+- ✅ `hasImage()` detecta imageMessage en mensajes WhatsApp
+- ✅ `downloadImageAsBase64()` descarga y convierte imágenes
+- ✅ `generateResponse()` usa Chat Completions con Vision API cuando detecta imágenes
+- ✅ Prompt actualizado instruye al asistente sobre capacidades de Vision
+
+### Arquitectura de Vision Support
+
+**WhatsApp → Backend → OpenAI Vision:**
+```
+1. Cliente envía imagen por WhatsApp
+2. whatsapp.service.ts detecta imageMessage
+3. downloadImageAsBase64() descarga y convierte a base64
+4. Se envía JSON: {text: "mensaje", images: ["data:image/jpeg;base64,..."]}
+5. assistant.service.ts parsea JSON y detecta images[]
+6. Llama a Chat Completions API con gpt-4o
+7. Content array incluye: [{type: "text"}, {type: "image_url", image_url: {...}}]
+8. GPT-4o Vision lee imagen y extrae productos
+9. Responde con lista de productos detectados
+10. Respuesta se envía al cliente por WhatsApp
+```
+
+### Archivos Modificados
+- ✅ `/backend/src/prompts/tupac-atencion-cliente.txt` - Agregadas instrucciones de Vision
+- ✅ Base de datos (tabla `assistants`) - Columna `instructions` actualizada
+
+### Flujo Completo de Pedido por Imagen
+1. **Cliente**: Envía foto de hoja con pedido escrito
+2. **WhatsApp Service**: Detecta imagen y descarga
+3. **Vision API**: GPT-4o lee contenido de la imagen
+4. **Asistente**: Responde con lista de productos leídos
+5. **Cliente**: Confirma o corrige productos
+6. **Gestor de Pedidos**: Procesa pedido (próxima fase)
+
+### Próximos Pasos
+- [ ] Integrar productos leídos con sistema de órdenes
+- [ ] Validar productos contra inventario/catálogo
+- [ ] Consultar precios automáticamente para productos detectados
+- [ ] Crear orden automáticamente cuando cliente confirma
 
 ---
 
