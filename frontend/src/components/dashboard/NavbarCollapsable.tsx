@@ -68,6 +68,8 @@ export default function NavbarCollapsable() {
     { name: 'Inicio', href: '/dashboard', icon: Home },
     { name: 'Chats', href: '/dashboard/chat', icon: MessageSquare },
     { name: 'Pedidos', href: '/dashboard/orders', icon: ShoppingCart },
+    { name: 'Reclamos', href: '/dashboard/tickets', icon: Ticket },
+    { name: 'Pipeline', href: '/dashboard/pipeline', icon: Kanban },
     { name: 'Configuración', href: '/dashboard/configuration', icon: Settings },
   ];
 
@@ -82,8 +84,6 @@ export default function NavbarCollapsable() {
     {
       title: 'Automatización',
       items: [
-        { name: 'Reclamos', href: '/dashboard/tickets', icon: Ticket },
-        { name: 'Pipeline', href: '/dashboard/pipeline', icon: Kanban },
         { name: 'Smart Tags', href: '/dashboard/smart-tags', icon: Tag },
         { name: 'Campañas', href: '/dashboard/campaigns', icon: Megaphone },
         { name: 'Base de datos', href: '/dashboard/database', icon: Database },
