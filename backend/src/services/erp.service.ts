@@ -445,17 +445,30 @@ class ERPService {
   formatProductInfo(product: ERPArticleResponse): string {
     const lines: string[] = [];
     
+    // Helper para obtener string de cualquier valor
+    const getString = (value: any): string => {
+      if (!value) return '';
+      if (typeof value === 'string') return value.trim();
+      if (typeof value === 'object' && value['#text']) return String(value['#text']).trim();
+      return String(value).trim();
+    };
+    
     // Nombre del producto
-    lines.push(`📦 **${product.nombre.trim()}**`);
+    const nombre = getString(product.nombre);
+    if (nombre) lines.push(`📦 **${nombre}**`);
     
     // ID y SKU
     if (product.id) lines.push(`   ID: ${product.id}`);
-    if (product.sku) lines.push(`   SKU: ${product.sku.trim()}`);
+    const sku = getString(product.sku);
+    if (sku) lines.push(`   SKU: ${sku}`);
     
     // Categorización
-    if (product.depto) lines.push(`   Departamento: ${product.depto.trim()}`);
-    if (product.familia) lines.push(`   Familia: ${product.familia.trim()}`);
-    if (product.marca) lines.push(`   Marca: ${product.marca.trim()}`);
+    const depto = getString(product.depto);
+    if (depto) lines.push(`   Departamento: ${depto}`);
+    const familia = getString(product.familia);
+    if (familia) lines.push(`   Familia: ${familia}`);
+    const marca = getString(product.marca);
+    if (marca) lines.push(`   Marca: ${marca}`);
     
     // Precios (convertir formato: "2795,8680" -> "$2,795.87")
     lines.push(`\n💰 **Precios:**`);
