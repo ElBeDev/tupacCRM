@@ -331,8 +331,58 @@ export class AssistantService {
   }
 
   /**
+   * Consulta el ERP para obtener información de productos
+   * Extrae nombres de productos del mensaje y busca en el ERP
+   */
+  private async queryERPForProducts(message: string): Promise<string | null> {
+    try {
+      const erpService = (await import('./erp.service')).default;
+      
+      // Extraer posibles nombres de productos del mensaje usando IA
+      const extractResponse = await openai!.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'Extrae los nombres de productos mencionados en el mensaje. Responde SOLO con los nombres separados por comas, o "ninguno" si no hay productos mencionados.' },
+          { role: 'user', content: message }
+        ],
+        temperature: 0.3,
+        max_tokens: 100,
+      });
+
+      const productNames = extractResponse.choices[0].message.content?.trim();
+      
+      if (!productNames || productNames.toLowerCase() === 'ninguno') {
+        console.log('📋 No se detectaron nombres de productos específicos');
+        return null;
+      }
+
+      console.log(`🔍 Productos detectados: ${productNames}`);
+      
+      // Buscar en el ERP (usar el primer término de búsqueda)
+      const searchTerm = productNames.split(',')[0].trim();
+      const products = await erpService.searchProductsByName(searchTerm);
+      
+      if (products.length === 0) {
+        console.log('❌ No se encontraron productos en el ERP');
+        return null;
+      }
+
+      console.log(`✅ Encontrados ${products.length} productos en el ERP`);
+      
+      // Formatear la información de los productos
+      const formattedProducts = products.slice(0, 5).map((p) => erpService.formatProductInfo(p)).join('\n\n---\n\n');
+      
+      return formattedProducts;
+    } catch (error) {
+      console.error('❌ Error consultando ERP:', error);
+      return null;
+    }
+  }
+
+  /**
    * Consultar a un asistente especializado según la intención detectada
    * Si es un pedido válido, lo crea automáticamente en el sistema
+   * Los especialistas de Precios/Stock consultan el ERP real
    */
   async consultSpecialist(intent: string, message: string, context?: { contactId?: string; conversationId?: string }): Promise<string | null> {
     if (!openai) return null;
@@ -366,15 +416,29 @@ export class AssistantService {
     console.log(`🔗 Consulting specialist: ${specialistName} for intent: ${intent}`);
 
     try {
+      // ========================================
+      // 📊 CONSULTAR ERP SI ES PRECIO O STOCK
+      // ========================================
+      let erpData = '';
+      
+      if (specialistName === 'Consultor de Precios' || specialistName === 'Consultor de Stock') {
+        const erpProducts = await this.queryERPForProducts(message);
+        if (erpProducts) {
+          erpData = `\n\n[DATOS DEL ERP]:\n${erpProducts}\n[FIN DATOS ERP]\n\nUsa esta información REAL del sistema para responder al cliente. Si no encontraste el producto exacto, sugiere alternativas similares de la lista.`;
+        } else {
+          erpData = '\n\n[NOTA]: No se encontraron productos en el ERP con ese nombre. Informa al cliente que no tenemos ese producto disponible actualmente.';
+        }
+      }
+
       // Usar Chat Completions para consulta rápida (sin threads)
       const response = await openai.chat.completions.create({
         model: specialist.model || 'gpt-4o-mini',
         messages: [
           { role: 'system', content: specialist.instructions },
-          { role: 'user', content: `El cliente escribió: "${message}"\n\nProporciona la información relevante para ayudar a responderle.` }
+          { role: 'user', content: `El cliente escribió: "${message}"${erpData}\n\nProporciona la información relevante para ayudar a responderle.` }
         ],
         temperature: 0.3,
-        max_tokens: 500,
+        max_tokens: 800,
         response_format: specialistName === 'Gestor de Pedidos' ? { type: 'json_object' } : undefined,
       });
 
