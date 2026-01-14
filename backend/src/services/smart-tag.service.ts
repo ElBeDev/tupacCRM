@@ -12,9 +12,9 @@ Tu tarea es ANALIZAR el mensaje del cliente y detectar su INTENCIÓN. No respond
 
 INTENCIONES POSIBLES:
 - "pedido": El cliente quiere pasar un pedido o agregar productos
-- "consulta_precio": El cliente pregunta por precios de productos específicos
-- "consulta_stock": El cliente pregunta por disponibilidad/stock
-- "consulta_general": Pregunta sobre horarios, pagos, cómo comprar, ubicación
+- "consulta_precio": El cliente pregunta por precios de productos específicos, o dice "tienes X?", "cuanto cuesta X?", "precio de X"
+- "consulta_stock": El cliente pregunta por disponibilidad/stock, dice "hay X?", "tienen X disponible?"
+- "consulta_general": Pregunta sobre horarios, pagos, cómo comprar, ubicación (NO productos)
 - "reclamo": El cliente tiene una queja, devolución o problema con un producto
 - "saludo": Es solo un saludo inicial sin intención clara
 - "lista_precios": El cliente pide lista de precios general
@@ -23,6 +23,11 @@ INTENCIONES POSIBLES:
 - "confirmacion": El cliente confirma algo o dice que sí/ok
 - "despedida": El cliente se despide o agradece
 - "otro": No encaja en ninguna categoría
+
+REGLAS IMPORTANTES:
+- Si el mensaje menciona UN PRODUCTO específico ("tienes queso?", "hay coca?"), usa "consulta_precio" (NO "consulta_general")
+- Si dice "de cual tienes?" o "que tipos hay?" en contexto de un producto, usa "consulta_precio" y extrae el producto del historial
+- "consulta_general" es SOLO para preguntas sobre el negocio (horarios, pagos, ubicación), NO productos
 
 INFORMACIÓN DEL NEGOCIO:
 - Horarios: Lun-Vie 7-12h y 13-17h, Sáb 7-16h, Feriados 7-14h
@@ -222,7 +227,7 @@ export class SmartTagService {
   }
 
   // Detectar intención de un mensaje usando IA
-  async detectIntent(message: string): Promise<{
+  async detectIntent(message: string, conversationHistory?: Array<{role: string; content: string}>): Promise<{
     intencion: string;
     confianza: number;
     productos_mencionados: string[];
@@ -237,12 +242,30 @@ export class SmartTagService {
     }
 
     try {
+      // Construir mensajes con historial si está disponible
+      const messages: Array<{role: 'system' | 'user' | 'assistant'; content: string}> = [
+        { role: 'system', content: TUPAC_INTENT_PROMPT }
+      ];
+
+      // Agregar últimos 3 mensajes del historial para contexto
+      if (conversationHistory && conversationHistory.length > 0) {
+        const recentHistory = conversationHistory.slice(-3);
+        for (const msg of recentHistory) {
+          if (msg.role === 'user' || msg.role === 'assistant') {
+            messages.push({ 
+              role: msg.role as 'user' | 'assistant', 
+              content: msg.content 
+            });
+          }
+        }
+      }
+
+      // Agregar el mensaje actual
+      messages.push({ role: 'user', content: message });
+
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: TUPAC_INTENT_PROMPT },
-          { role: 'user', content: message }
-        ],
+        messages,
         temperature: 0.3,
         max_tokens: 500,
         response_format: { type: 'json_object' }

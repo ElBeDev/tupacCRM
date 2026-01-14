@@ -648,10 +648,17 @@ export class AssistantService {
           });
         }
 
-        // Detectar intención del mensaje
+        // Detectar intención del mensaje con historial de conversación
         console.log('[Test] Detecting intent...');
         const smartTagService = (await import('./smart-tag.service')).default;
-        const intentResult = await smartTagService.detectIntent(message);
+        
+        // Obtener historial de conversación para contexto
+        const conversationHistory = testConversation.messages.reverse().map(msg => ({
+          role: msg.sender === 'USER' ? 'user' : 'assistant',
+          content: msg.content
+        }));
+        
+        const intentResult = await smartTagService.detectIntent(message, conversationHistory);
         const intent = intentResult?.intencion || undefined;
         console.log(`[Test] Intent detected: ${intent || 'none'}`);
 
