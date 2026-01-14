@@ -650,16 +650,16 @@ export class AssistantService {
 
         // Detectar intención del mensaje
         console.log('[Test] Detecting intent...');
-        const smartTagService = (await import('./smartTag.service')).default;
-        const intent = await smartTagService.detectIntent(message, testConversation.id);
+        const smartTagService = (await import('./smart-tag.service')).default;
+        const intentResult = await smartTagService.detectIntent(message);
+        const intent = intentResult?.intencion || undefined;
         console.log(`[Test] Intent detected: ${intent || 'none'}`);
 
         // Usar el sistema multi-agente completo con detección de intención
         const response = await this.generateResponse(
+          assistant.id,
           message,
-          testConversation.id,
-          userId,
-          intent || undefined,
+          intent,
           {
             contactId: testContact.id,
             conversationId: testConversation.id
