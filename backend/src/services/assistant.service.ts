@@ -595,7 +595,82 @@ export class AssistantService {
       return { response: responseText };
     }
 
-    // Sin imágenes, usar Assistants API normal
+    // NUEVO: Si es el asistente principal (isWhatsAppResponder), usar el sistema multi-agente completo
+    if (assistant.isWhatsAppResponder) {
+      console.log(`[Test] Using multi-agent system for: ${assistant.name}`);
+      
+      try {
+        // Crear una conversación temporal para la prueba
+        let testContact = await prisma.contact.findFirst({
+          where: { 
+            phone: 'TEST_ASSISTANT',
+            userId: userId
+          }
+        });
+
+        if (!testContact) {
+          testContact = await prisma.contact.create({
+            data: {
+              name: 'Testing Assistant',
+              phone: 'TEST_ASSISTANT',
+              userId: userId,
+            }
+          });
+        }
+
+        let testConversation = await prisma.conversation.findFirst({
+          where: {
+            contactId: testContact.id,
+            platform: 'test'
+          },
+          include: {
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 10
+            }
+          }
+        });
+
+        if (!testConversation) {
+          testConversation = await prisma.conversation.create({
+            data: {
+              contactId: testContact.id,
+              platform: 'test',
+              userId: userId,
+              messages: {
+                create: []
+              }
+            },
+            include: {
+              messages: {
+                orderBy: { createdAt: 'desc' },
+                take: 10
+              }
+            }
+          });
+        }
+
+        // Usar el sistema multi-agente completo
+        const response = await this.generateResponse(
+          message,
+          testConversation.id,
+          userId
+        );
+
+        // Guardar la respuesta
+        await prisma.assistantTestMessage.create({
+          data: { assistantId, role: 'assistant', content: response },
+        });
+
+        return { response };
+      } catch (error: any) {
+        console.error('[Test] Multi-agent error:', error);
+        // Si falla, caer al método simple
+        console.log('[Test] Falling back to simple assistant method');
+      }
+    }
+
+    // Sin imágenes, usar Assistants API normal (para especialistas o fallback)
     const thread = await openai.beta.threads.create();
     await openai.beta.threads.messages.create(thread.id, {
       role: 'user',
