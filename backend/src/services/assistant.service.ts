@@ -624,7 +624,7 @@ export class AssistantService {
           },
           include: {
             messages: {
-              orderBy: { createdAt: 'desc' },
+              orderBy: { sentAt: 'desc' },
               take: 10
             }
           }
@@ -641,7 +641,7 @@ export class AssistantService {
             },
             include: {
               messages: {
-                orderBy: { createdAt: 'desc' },
+                orderBy: { sentAt: 'desc' },
                 take: 10
               }
             }
