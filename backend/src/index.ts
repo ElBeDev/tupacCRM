@@ -18,6 +18,7 @@ import statsRoutes from './routes/stats';
 import aiRoutes from './routes/ai';
 import assistantsRoutes from './routes/assistants';
 import smartTagsRoutes from './routes/smart-tags';
+import erpRoutes from './routes/erp';
 import WhatsAppService from './services/whatsapp.service';
 
 dotenv.config();
@@ -121,6 +122,7 @@ app.use('/api/analytics', statsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/assistants', assistantsRoutes);
 app.use('/api/smart-tags', smartTagsRoutes);
+app.use('/api/erp', erpRoutes);
 
 // Socket.IO connection
 io.on('connection', (socket) => {

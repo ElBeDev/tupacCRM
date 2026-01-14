@@ -145,6 +145,9 @@ class ERPService {
         console.log(`← Recibiendo datos (${chunk.length} bytes)...`);
         responseData += chunk;
         
+        // Resetear timeout cada vez que llegan datos
+        client.setTimeout(60000);
+        
         // Si recibimos XML completo, cerrar la conexión
         if (responseData.includes('</document>')) {
           console.log('✓ XML completo recibido, cerrando conexión');
