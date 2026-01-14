@@ -648,19 +648,30 @@ export class AssistantService {
           });
         }
 
-        // Usar el sistema multi-agente completo
+        // Detectar intención del mensaje
+        console.log('[Test] Detecting intent...');
+        const smartTagService = (await import('./smartTag.service')).default;
+        const intent = await smartTagService.detectIntent(message, testConversation.id);
+        console.log(`[Test] Intent detected: ${intent || 'none'}`);
+
+        // Usar el sistema multi-agente completo con detección de intención
         const response = await this.generateResponse(
           message,
           testConversation.id,
-          userId
+          userId,
+          intent || undefined,
+          {
+            contactId: testContact.id,
+            conversationId: testConversation.id
+          }
         );
 
         // Guardar la respuesta
         await prisma.assistantTestMessage.create({
-          data: { assistantId, role: 'assistant', content: response },
+          data: { assistantId, role: 'assistant', content: response || 'Sin respuesta' },
         });
 
-        return { response };
+        return { response: response || 'Sin respuesta' };
       } catch (error: any) {
         console.error('[Test] Multi-agent error:', error);
         // Si falla, caer al método simple
