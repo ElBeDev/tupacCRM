@@ -654,7 +654,7 @@ export class AssistantService {
         
         // Obtener historial de conversación para contexto
         const conversationHistory = testConversation.messages.reverse().map(msg => ({
-          role: msg.sender === 'USER' ? 'user' : 'assistant',
+          role: msg.senderType === 'CONTACT' ? 'user' : 'assistant',
           content: msg.content
         }));
         
