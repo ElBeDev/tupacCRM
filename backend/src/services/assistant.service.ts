@@ -603,8 +603,7 @@ export class AssistantService {
         // Crear una conversación temporal para la prueba
         let testContact = await prisma.contact.findFirst({
           where: { 
-            phone: 'TEST_ASSISTANT',
-            userId: userId
+            phone: 'TEST_ASSISTANT'
           }
         });
 
@@ -613,7 +612,7 @@ export class AssistantService {
             data: {
               name: 'Testing Assistant',
               phone: 'TEST_ASSISTANT',
-              userId: userId,
+              source: 'MANUAL',
             }
           });
         }
@@ -621,7 +620,7 @@ export class AssistantService {
         let testConversation = await prisma.conversation.findFirst({
           where: {
             contactId: testContact.id,
-            platform: 'test'
+            channel: 'WEB'
           },
           include: {
             messages: {
@@ -635,8 +634,7 @@ export class AssistantService {
           testConversation = await prisma.conversation.create({
             data: {
               contactId: testContact.id,
-              platform: 'test',
-              userId: userId,
+              channel: 'WEB',
               messages: {
                 create: []
               }
