@@ -8,7 +8,7 @@ const router = Router();
 router.post('/', authenticate, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const { name, description, instructions, model, temperature, tools, fileIds, isWhatsAppResponder } = req.body;
+    const { name, description, instructions, model, temperature, tools, fileIds, isWhatsAppResponder, delegatesTo, specialty } = req.body;
 
     if (!name || !instructions) {
       return res.status(400).json({ error: 'Name and instructions are required' });
@@ -23,6 +23,8 @@ router.post('/', authenticate, async (req, res) => {
       tools,
       fileIds,
       isWhatsAppResponder,
+      delegatesTo,
+      specialty,
     });
 
     res.status(201).json(assistant);
@@ -86,7 +88,7 @@ router.put('/:id', authenticate, async (req, res) => {
   try {
     const userId = req.user!.userId;
     const { id } = req.params;
-    const { name, description, instructions, model, temperature, tools, fileIds, isWhatsAppResponder } = req.body;
+    const { name, description, instructions, model, temperature, tools, fileIds, isWhatsAppResponder, delegatesTo, specialty } = req.body;
 
     const assistant = await assistantService.updateAssistant(id, userId, {
       name,
@@ -97,6 +99,8 @@ router.put('/:id', authenticate, async (req, res) => {
       tools,
       fileIds,
       isWhatsAppResponder,
+      delegatesTo,
+      specialty,
     });
 
     res.json(assistant);
@@ -227,6 +231,70 @@ router.get('/:id/openai-config', authenticate, async (req, res) => {
     }
     
     res.status(500).json({ error: error.message || 'Failed to get OpenAI config' });
+  }
+});
+
+// Configurar delegación del asistente (a qué otros asistentes puede consultar)
+router.put('/:id/delegates', authenticate, async (req, res) => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+    const { delegatesTo } = req.body;
+
+    if (!Array.isArray(delegatesTo)) {
+      return res.status(400).json({ error: 'delegatesTo must be an array of assistant IDs' });
+    }
+
+    const assistant = await assistantService.updateAssistant(id, userId, {
+      delegatesTo,
+    });
+
+    res.json({
+      success: true,
+      message: 'Delegation configuration updated',
+      delegatesTo: assistant.delegatesTo,
+    });
+  } catch (error: any) {
+    console.error('Error updating delegation:', error);
+    
+    if (error.message === 'Assistant not found') {
+      return res.status(404).json({ error: 'Assistant not found' });
+    }
+    
+    res.status(500).json({ error: error.message || 'Failed to update delegation' });
+  }
+});
+
+// Obtener asistentes disponibles para delegación (especialistas)
+router.get('/:id/available-specialists', authenticate, async (req, res) => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+
+    // Verificar que el asistente existe y pertenece al usuario
+    await assistantService.getAssistant(id, userId);
+
+    // Obtener todos los asistentes del usuario excepto el actual
+    const allAssistants = await assistantService.listAssistants(userId);
+    const availableSpecialists = allAssistants
+      .filter(a => a.id !== id) // Excluir el asistente actual
+      .map(a => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        specialty: a.specialty,
+        isActive: a.isActive,
+      }));
+
+    res.json(availableSpecialists);
+  } catch (error: any) {
+    console.error('Error getting available specialists:', error);
+    
+    if (error.message === 'Assistant not found') {
+      return res.status(404).json({ error: 'Assistant not found' });
+    }
+    
+    res.status(500).json({ error: error.message || 'Failed to get available specialists' });
   }
 });
 

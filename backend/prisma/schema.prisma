@@ -7,45 +7,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User Model
 model User {
-  id                  String         @id @default(uuid())
-  email               String         @unique
-  password            String?
-  name                String
-  role                Role           @default(AGENT)
-  avatar              String?
-  googleId            String?        @unique
-  googleAccessToken   String?        @db.Text
-  googleRefreshToken  String?        @db.Text
-  googleTokenExpiry   DateTime?
-  isActive            Boolean        @default(true)
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  
-  // Relations
-  contacts      Contact[]      @relation("AssignedContacts")
-  conversations Conversation[] @relation("AssignedConversations")
-  messages      Message[]      @relation("AgentMessages")
-  campaigns     Campaign[]     @relation("CampaignCreator")
-  tickets       Ticket[]       @relation("AssignedTickets")
-  
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  password           String?
+  name               String
+  role               Role           @default(AGENT)
+  avatar             String?
+  googleId           String?        @unique
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleTokenExpiry  DateTime?
+  campaigns          Campaign[]     @relation("CampaignCreator")
+  contacts           Contact[]      @relation("AssignedContacts")
+  conversations      Conversation[] @relation("AssignedConversations")
+  messages           Message[]      @relation("AgentMessages")
+  tickets            Ticket[]       @relation("AssignedTickets")
+
   @@map("users")
 }
 
-enum Role {
-  ADMIN
-  MANAGER
-  AGENT
-}
-
-// Contact (Lead/Customer) Model
 model Contact {
   id            String         @id @default(uuid())
   name          String
   email         String?
   phone         String?        @unique
-  whatsappJid   String?        // Full WhatsApp JID (e.g., 123456@lid or 123456@s.whatsapp.net)
   source        Source         @default(MANUAL)
   status        ContactStatus  @default(NEW)
   score         Int            @default(0)
@@ -54,37 +43,15 @@ model Contact {
   assignedToId  String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  
-  // Relations
+  whatsappJid   String?
   assignedTo    User?          @relation("AssignedContacts", fields: [assignedToId], references: [id])
   conversations Conversation[]
   orders        Order[]
   tickets       Ticket[]
-  
+
   @@map("contacts")
 }
 
-enum Source {
-  WHATSAPP
-  INSTAGRAM
-  FACEBOOK
-  TIKTOK
-  WEBSITE
-  MANUAL
-  IMPORT
-}
-
-enum ContactStatus {
-  NEW
-  CONTACTED
-  QUALIFIED
-  PROPOSAL
-  NEGOTIATION
-  WON
-  LOST
-}
-
-// Conversation Model
 model Conversation {
   id            String             @id @default(uuid())
   contactId     String
@@ -95,15 +62,211 @@ model Conversation {
   metadata      Json?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
-  
-  // Relations
-  contact       Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
   assignedTo    User?              @relation("AssignedConversations", fields: [assignedToId], references: [id])
+  contact       Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
   messages      Message[]
   orders        Order[]
   tickets       Ticket[]
-  
+
   @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String?
+  senderType     SenderType
+  content        String
+  messageType    MessageType  @default(TEXT)
+  metadata       Json?
+  isRead         Boolean      @default(false)
+  sentAt         DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User?        @relation("AgentMessages", fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+model Campaign {
+  id              String         @id @default(uuid())
+  name            String
+  type            CampaignType
+  channel         Channel
+  status          CampaignStatus @default(DRAFT)
+  targetSegment   Json?
+  messageTemplate String
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  createdById     String
+  metrics         Json?          @default("{\"read\": 0, \"sent\": 0, \"replied\": 0, \"delivered\": 0}")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdBy       User           @relation("CampaignCreator", fields: [createdById], references: [id])
+
+  @@map("campaigns")
+}
+
+model WhatsAppSession {
+  id          String    @id @default(uuid())
+  sessionName String    @unique
+  phoneNumber String?
+  isActive    Boolean   @default(false)
+  qrCode      String?
+  lastSeen    DateTime?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("whatsapp_sessions")
+}
+
+model AIConfig {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  systemPrompt    String
+  model           String   @default("gpt-4-turbo-preview")
+  temperature     Float    @default(0.7)
+  maxTokens       Int      @default(1000)
+  isActive        Boolean  @default(true)
+  autoReply       Boolean  @default(false)
+  businessHours   Json?
+  fallbackMessage String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("ai_configs")
+}
+
+model Assistant {
+  id                  String                 @id @default(uuid())
+  userId              String
+  name                String
+  description         String?
+  instructions        String
+  model               String                 @default("gpt-4-turbo-preview")
+  temperature         Float                  @default(0.7)
+  openaiId            String?                @unique
+  tools               Json?
+  fileIds             String[]
+  metadata            Json?
+  isActive            Boolean                @default(true)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  isWhatsAppResponder Boolean                @default(false)
+  delegatesTo         String[]
+  specialty           String?
+  testMessages        AssistantTestMessage[]
+
+  @@map("assistants")
+}
+
+model AssistantTestMessage {
+  id          String    @id @default(uuid())
+  assistantId String
+  role        String
+  content     String
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+
+  @@map("assistant_test_messages")
+}
+
+model SmartTag {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  color       String   @default("#9D39FE")
+  icon        String?
+  conditions  Json?
+  isAutomatic Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("smart_tags")
+}
+
+model Order {
+  id             String        @id @default(uuid())
+  orderNumber    String        @unique
+  contactId      String
+  conversationId String?
+  status         OrderStatus   @default(PENDING)
+  notes          String?
+  totalAmount    Float         @default(0)
+  pickupDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  items          OrderItem[]
+  contact        Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  productName String
+  quantity    Int      @default(1)
+  unitPrice   Float    @default(0)
+  subtotal    Float    @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model Ticket {
+  id             String         @id @default(uuid())
+  ticketNumber   String         @unique
+  contactId      String
+  conversationId String?
+  type           TicketType     @default(COMPLAINT)
+  status         TicketStatus   @default(OPEN)
+  priority       TicketPriority @default(MEDIUM)
+  subject        String
+  description    String?
+  resolution     String?
+  assignedToId   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  assignedTo     User?          @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation   Conversation?  @relation(fields: [conversationId], references: [id])
+
+  @@map("tickets")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  AGENT
+}
+
+enum Source {
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  MANUAL
+  IMPORT
+  WEBSITE
+}
+
+enum ContactStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
 }
 
 enum Channel {
@@ -119,25 +282,6 @@ enum ConversationStatus {
   OPEN
   PENDING
   CLOSED
-}
-
-// Message Model
-model Message {
-  id             String       @id @default(uuid())
-  conversationId String
-  senderId       String?
-  senderType     SenderType
-  content        String       @db.Text
-  messageType    MessageType  @default(TEXT)
-  metadata       Json?
-  isRead         Boolean      @default(false)
-  sentAt         DateTime     @default(now())
-  
-  // Relations
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User?        @relation("AgentMessages", fields: [senderId], references: [id])
-  
-  @@map("messages")
 }
 
 enum SenderType {
@@ -157,28 +301,6 @@ enum MessageType {
   CONTACT_CARD
 }
 
-// Campaign Model
-model Campaign {
-  id              String         @id @default(uuid())
-  name            String
-  type            CampaignType
-  channel         Channel
-  status          CampaignStatus @default(DRAFT)
-  targetSegment   Json?
-  messageTemplate String         @db.Text
-  scheduledAt     DateTime?
-  completedAt     DateTime?
-  createdById     String
-  metrics         Json?          @default("{\"sent\": 0, \"delivered\": 0, \"read\": 0, \"replied\": 0}")
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  
-  // Relations
-  createdBy       User           @relation("CampaignCreator", fields: [createdById], references: [id])
-  
-  @@map("campaigns")
-}
-
 enum CampaignType {
   BROADCAST
   AUTOMATED
@@ -194,182 +316,29 @@ enum CampaignStatus {
   CANCELLED
 }
 
-// WhatsApp Session Model
-model WhatsAppSession {
-  id          String    @id @default(uuid())
-  sessionName String    @unique
-  phoneNumber String?
-  isActive    Boolean   @default(false)
-  qrCode      String?   @db.Text
-  lastSeen    DateTime?
-  metadata    Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  @@map("whatsapp_sessions")
-}
-
-// AI Configuration Model
-model AIConfig {
-  id                String   @id @default(uuid())
-  name              String   @unique
-  systemPrompt      String   @db.Text
-  model             String   @default("gpt-4-turbo-preview")
-  temperature       Float    @default(0.7)
-  maxTokens         Int      @default(1000)
-  isActive          Boolean  @default(true)
-  autoReply         Boolean  @default(false)
-  businessHours     Json?
-  fallbackMessage   String?  @db.Text
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  @@map("ai_configs")
-}
-
-// Assistant Model (OpenAI Assistants)
-model Assistant {
-  id                   String    @id @default(uuid())
-  userId               String
-  name                 String
-  description          String?   @db.Text
-  instructions         String    @db.Text
-  model                String    @default("gpt-4-turbo-preview")
-  temperature          Float     @default(0.7)
-  openaiId             String?   @unique // ID del asistente en OpenAI
-  tools                Json?     // Herramientas habilitadas (code_interpreter, retrieval, function)
-  fileIds              String[]  // IDs de archivos asociados
-  metadata             Json?
-  isActive             Boolean   @default(true)
-  isWhatsAppResponder  Boolean   @default(false) // Si responde automáticamente en WhatsApp
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  
-  // Relations
-  testMessages    AssistantTestMessage[]
-  
-  @@map("assistants")
-}
-
-// Assistant Test Message Model (Mensajes de prueba)
-model AssistantTestMessage {
-  id          String    @id @default(uuid())
-  assistantId String
-  role        String    // "user" o "assistant"
-  content     String    @db.Text
-  metadata    Json?
-  createdAt   DateTime  @default(now())
-  
-  // Relations
-  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
-  
-  @@map("assistant_test_messages")
-}
-
-// Smart Tag Model (Etiquetas inteligentes para clasificar leads)
-model SmartTag {
-  id            String    @id @default(uuid())
-  name          String
-  description   String?   @db.Text
-  color         String    @default("#9D39FE")
-  icon          String?   // Nombre del icono (opcional)
-  conditions    Json?     // Condiciones para aplicar automáticamente {"field": "score", "operator": ">=", "value": 80}
-  isAutomatic   Boolean   @default(false) // Se aplica automáticamente según condiciones
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  @@map("smart_tags")
-}
-
-// Order Model (Pedidos de mayorista)
-model Order {
-  id              String      @id @default(uuid())
-  orderNumber     String      @unique
-  contactId       String
-  conversationId  String?
-  status          OrderStatus @default(PENDING)
-  notes           String?     @db.Text
-  totalAmount     Float       @default(0)
-  pickupDate      DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  // Relations
-  contact         Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  conversation    Conversation? @relation(fields: [conversationId], references: [id])
-  items           OrderItem[]
-  
-  @@map("orders")
-}
-
 enum OrderStatus {
-  PENDING       // Pendiente de confirmación
-  CONFIRMED     // Confirmado
-  PREPARING     // En preparación
-  READY         // Listo para recoger
-  COMPLETED     // Entregado/Completado
-  CANCELLED     // Cancelado
-}
-
-// Order Item Model (Items del pedido)
-model OrderItem {
-  id          String   @id @default(uuid())
-  orderId     String
-  productName String
-  quantity    Int      @default(1)
-  unitPrice   Float    @default(0)
-  subtotal    Float    @default(0)
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
-  @@map("order_items")
-}
-
-// Ticket Model (Reclamos, Quejas, Consultas)
-model Ticket {
-  id              String        @id @default(uuid())
-  ticketNumber    String        @unique
-  contactId       String
-  conversationId  String?
-  type            TicketType    @default(COMPLAINT)
-  status          TicketStatus  @default(OPEN)
-  priority        TicketPriority @default(MEDIUM)
-  subject         String
-  description     String?       @db.Text
-  resolution      String?       @db.Text
-  assignedToId    String?
-  resolvedAt      DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  // Relations
-  contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  conversation    Conversation? @relation(fields: [conversationId], references: [id])
-  assignedTo      User?         @relation("AssignedTickets", fields: [assignedToId], references: [id])
-  
-  @@map("tickets")
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
 }
 
 enum TicketType {
-  COMPLAINT     // Reclamo
-  QUESTION      // Consulta
-  RETURN        // Devolución
-  EXCHANGE      // Cambio
-  OTHER         // Otro
+  COMPLAINT
+  QUESTION
+  RETURN
+  EXCHANGE
+  OTHER
 }
 
 enum TicketStatus {
-  OPEN          // Abierto
-  IN_PROGRESS   // En progreso
-  PENDING       // Pendiente de respuesta
-  RESOLVED      // Resuelto
-  CLOSED        // Cerrado
+  OPEN
+  IN_PROGRESS
+  PENDING
+  RESOLVED
+  CLOSED
 }
 
 enum TicketPriority {

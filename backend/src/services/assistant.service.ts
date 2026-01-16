@@ -15,6 +15,8 @@ export interface CreateAssistantDTO {
   tools?: any[];
   fileIds?: string[];
   isWhatsAppResponder?: boolean;
+  delegatesTo?: string[]; // IDs de asistentes a los que puede delegar
+  specialty?: string; // Especialidad: 'erp', 'precios', 'stock', 'pedidos', 'reclamos', 'general'
 }
 
 export class AssistantService {
@@ -53,6 +55,8 @@ export class AssistantService {
           fileIds: data.fileIds || [],
           isActive: true,
           isWhatsAppResponder: data.isWhatsAppResponder || false,
+          delegatesTo: data.delegatesTo || [],
+          specialty: data.specialty || 'general',
         },
       });
 
@@ -151,6 +155,8 @@ export class AssistantService {
         tools: data.tools,
         fileIds: data.fileIds,
         isWhatsAppResponder: data.isWhatsAppResponder,
+        delegatesTo: data.delegatesTo,
+        specialty: data.specialty,
       },
     });
     
@@ -381,39 +387,43 @@ export class AssistantService {
 
   /**
    * Consultar a un asistente especializado según la intención detectada
+   * Ahora usa el campo delegatesTo para saber a qué asistentes puede consultar
    * Si es un pedido válido, lo crea automáticamente en el sistema
    * Los especialistas de Precios/Stock consultan el ERP real
    */
   async consultSpecialist(intent: string, message: string, context?: { contactId?: string; conversationId?: string }): Promise<string | null> {
     if (!openai) return null;
 
-    // Mapear intención a nombre del asistente especializado
-    const intentToSpecialist: Record<string, string> = {
-      'consulta_precio': 'Consultor de Precios',
-      'consulta_stock': 'Consultor de Stock',
-      'pedido': 'Gestor de Pedidos',
-      'pedido_incompleto': 'Gestor de Pedidos',
-      'confirmacion': 'Gestor de Pedidos',
-      'reclamo': 'Gestor de Reclamos',
+    // Mapear intención a especialidad del asistente
+    const intentToSpecialty: Record<string, string> = {
+      'consulta_precio': 'precios',
+      'consulta_stock': 'stock',
+      'pedido': 'pedidos',
+      'pedido_incompleto': 'pedidos',
+      'confirmacion': 'pedidos',
+      'reclamo': 'reclamos',
     };
 
-    const specialistName = intentToSpecialist[intent];
-    if (!specialistName) {
+    const targetSpecialty = intentToSpecialty[intent];
+    if (!targetSpecialty) {
       console.log(`🔍 No specialist needed for intent: ${intent}`);
       return null;
     }
 
-    // Buscar el asistente especializado
+    // Buscar el asistente especializado por su specialty
     const specialist = await prisma.assistant.findFirst({
-      where: { name: specialistName },
+      where: { 
+        specialty: targetSpecialty,
+        isActive: true
+      },
     });
 
     if (!specialist) {
-      console.warn(`⚠️ Specialist "${specialistName}" not found`);
+      console.warn(`⚠️ No specialist found with specialty: ${targetSpecialty}`);
       return null;
     }
 
-    console.log(`🔗 Consulting specialist: ${specialistName} for intent: ${intent}`);
+    console.log(`🔗 Consulting specialist: ${specialist.name} (${specialist.specialty}) for intent: ${intent}`);
 
     try {
       // ========================================
@@ -421,7 +431,7 @@ export class AssistantService {
       // ========================================
       let erpData = '';
       
-      if (specialistName === 'Consultor de Precios' || specialistName === 'Consultor de Stock') {
+      if (specialist.specialty === 'precios' || specialist.specialty === 'stock' || specialist.specialty === 'erp') {
         const erpProducts = await this.queryERPForProducts(message);
         if (erpProducts) {
           erpData = `\n\n[DATOS DEL ERP]:\n${erpProducts}\n[FIN DATOS ERP]\n\nUsa esta información REAL del sistema para responder al cliente. Si no encontraste el producto exacto, sugiere alternativas similares de la lista.`;
@@ -437,16 +447,16 @@ export class AssistantService {
           { role: 'system', content: specialist.instructions },
           { role: 'user', content: `El cliente escribió: "${message}"${erpData}\n\nProporciona la información relevante para ayudar a responderle.` }
         ],
-        temperature: 0.3,
+        temperature: specialist.temperature || 0.3,
         max_tokens: 800,
-        response_format: specialistName === 'Gestor de Pedidos' ? { type: 'json_object' } : undefined,
+        response_format: specialist.specialty === 'pedidos' ? { type: 'json_object' } : undefined,
       });
 
       const specialistResponse = response.choices[0].message.content;
       console.log(`✅ Specialist response: ${specialistResponse?.substring(0, 200)}...`);
 
       // Si es el Gestor de Pedidos, intentar crear el pedido si es válido
-      if (specialistName === 'Gestor de Pedidos' && specialistResponse && context?.contactId && context?.conversationId) {
+      if (specialist.specialty === 'pedidos' && specialistResponse && context?.contactId && context?.conversationId) {
         try {
           const orderData = JSON.parse(specialistResponse);
           
@@ -479,7 +489,7 @@ export class AssistantService {
       }
       
       // Si es el Gestor de Reclamos, crear un ticket automáticamente
-      if (specialistName === 'Gestor de Reclamos' && context?.contactId) {
+      if (specialist.specialty === 'reclamos' && context?.contactId) {
         try {
           const { ticketService } = await import('./ticket.service');
           
@@ -504,7 +514,7 @@ export class AssistantService {
       
       return specialistResponse;
     } catch (error) {
-      console.error(`❌ Error consulting specialist ${specialistName}:`, error);
+      console.error(`❌ Error consulting specialist ${specialist.name}:`, error);
       return null;
     }
   }

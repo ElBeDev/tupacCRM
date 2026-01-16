@@ -88,6 +88,8 @@ interface Assistant {
   isWhatsAppResponder: boolean;
   createdAt: string;
   openaiId?: string;
+  delegatesTo?: string[]; // IDs de asistentes a los que puede delegar
+  specialty?: string; // Especialidad del asistente
 }
 
 interface TestMessage {
