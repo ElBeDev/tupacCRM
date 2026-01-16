@@ -348,21 +348,43 @@ export class AssistantService {
       const extractResponse = await openai!.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Extrae los nombres o términos de búsqueda de productos mencionados en el mensaje. Incluye términos genéricos como "coca", "pepsi", "cerveza", "agua", etc. Responde SOLO con los términos de búsqueda separados por comas, o "ninguno" si no hay productos mencionados. Ejemplos: "coca" -> "coca", "tienen cerveza?" -> "cerveza", "quiero pepsi" -> "pepsi"' },
+          { 
+            role: 'system', 
+            content: `Eres un extractor de términos de búsqueda de productos. 
+Tu trabajo es identificar QUÉ PRODUCTO está preguntando el cliente.
+
+REGLAS:
+1. Extrae la palabra clave del producto (singular, sin artículos)
+2. Si menciona una marca o nombre popular, usa ese término
+3. Incluye términos parciales o coloquiales
+4. Responde SOLO con el término de búsqueda, nada más
+
+EJEMPLOS:
+"tienes coca?" -> coca
+"tienes cocas?" -> coca
+"hay pepsi?" -> pepsi
+"quiero cerveza" -> cerveza
+"me das un agua?" -> agua
+"tienen fanta?" -> fanta
+"hola" -> ninguno
+"cuánto cuesta?" -> ninguno` 
+          },
           { role: 'user', content: message }
         ],
-        temperature: 0.3,
-        max_tokens: 100,
+        temperature: 0.1,
+        max_tokens: 50,
       });
 
-      const productNames = extractResponse.choices[0].message.content?.trim();
+      const productNames = extractResponse.choices[0].message.content?.trim().toLowerCase();
       
-      if (!productNames || productNames.toLowerCase() === 'ninguno' || productNames.toLowerCase() === 'ninguno.') {
+      console.log(`🔍 Extracción de productos: "${message}" -> "${productNames}"`);
+      
+      if (!productNames || productNames === 'ninguno' || productNames === 'ninguno.' || productNames.length === 0) {
         console.log('📋 No se detectaron nombres de productos específicos');
         return null;
       }
 
-      console.log(`🔍 Productos detectados: ${productNames}`);
+      console.log(`✅ Productos confirmados para búsqueda: ${productNames}`);
       
       // Buscar en el ERP (usar el primer término de búsqueda)
       const searchTerm = productNames.split(',')[0].trim();
