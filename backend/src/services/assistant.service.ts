@@ -340,9 +340,14 @@ export class AssistantService {
    * Consulta el ERP para obtener información de productos
    * Extrae nombres de productos del mensaje y busca en el ERP
    */
-  private async queryERPForProducts(message: string): Promise<string | null> {
+  private async queryERPForProducts(message: string, conversationContext?: string): Promise<string | null> {
     try {
       const erpService = (await import('./erp.service')).default;
+      
+      // Construir el mensaje con contexto si existe
+      const fullMessage = conversationContext 
+        ? `Conversación previa:\n${conversationContext}\n\nÚltimo mensaje: ${message}`
+        : message;
       
       // Extraer posibles nombres de productos del mensaje usando IA
       const extractResponse = await openai!.chat.completions.create({
@@ -353,23 +358,26 @@ export class AssistantService {
             content: `Eres un extractor de términos de búsqueda de productos. 
 Tu trabajo es identificar QUÉ PRODUCTO está preguntando el cliente.
 
+IMPORTANTE: Si el cliente dice "dame opciones", "qué marcas tienes", "cuáles hay", etc., 
+debes buscar el producto mencionado en los mensajes anteriores de la conversación.
+
 REGLAS:
 1. Extrae la palabra clave del producto (singular, sin artículos)
 2. Si menciona una marca o nombre popular, usa ese término
 3. Incluye términos parciales o coloquiales
-4. Responde SOLO con el término de búsqueda, nada más
+4. Si el mensaje actual no tiene producto pero pide opciones/marcas, busca en el contexto previo
+5. Responde SOLO con el término de búsqueda, nada más
 
 EJEMPLOS:
 "tienes coca?" -> coca
 "tienes cocas?" -> coca
+"queso crema" -> queso crema
+"dame opciones" (después de preguntar por queso) -> queso
+"qué marcas tienes" (después de mencionar cerveza) -> cerveza
 "hay pepsi?" -> pepsi
-"quiero cerveza" -> cerveza
-"me das un agua?" -> agua
-"tienen fanta?" -> fanta
-"hola" -> ninguno
-"cuánto cuesta?" -> ninguno` 
+"hola" -> ninguno` 
           },
-          { role: 'user', content: message }
+          { role: 'user', content: fullMessage }
         ],
         temperature: 0.1,
         max_tokens: 50,
@@ -449,16 +457,47 @@ EJEMPLOS:
 
     try {
       // ========================================
+      // � OBTENER CONTEXTO DE LA CONVERSACIÓN
+      // ========================================
+      let conversationContext = '';
+      if (context?.conversationId) {
+        try {
+          // Obtener los últimos 5 mensajes de la conversación
+          const recentMessages = await prisma.message.findMany({
+            where: { conversationId: context.conversationId },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            select: {
+              content: true,
+              role: true,
+            }
+          });
+          
+          // Formatear mensajes (más recientes primero, invertir para tener el orden correcto)
+          conversationContext = recentMessages
+            .reverse()
+            .map(m => `${m.role === 'user' ? 'Cliente' : 'Asistente'}: ${m.content}`)
+            .join('\n');
+          
+          if (conversationContext) {
+            console.log(`📜 Contexto obtenido: ${recentMessages.length} mensajes recientes`);
+          }
+        } catch (error) {
+          console.warn('⚠️ No se pudo obtener contexto de conversación:', error);
+        }
+      }
+      
+      // ========================================
       // 📊 CONSULTAR ERP SI ES PRECIO O STOCK
       // ========================================
       let erpData = '';
       
       if (specialist.specialty === 'precios' || specialist.specialty === 'stock' || specialist.specialty === 'erp') {
-        const erpProducts = await this.queryERPForProducts(message);
+        const erpProducts = await this.queryERPForProducts(message, conversationContext);
         if (erpProducts) {
-          erpData = `\n\n[DATOS DEL ERP]:\n${erpProducts}\n[FIN DATOS ERP]\n\nUsa esta información REAL del sistema para responder al cliente. Si no encontraste el producto exacto, sugiere alternativas similares de la lista.`;
+          erpData = `\n\n[DATOS DEL ERP]:\n${erpProducts}\n[FIN DATOS ERP]\n\nUsa esta información REAL del sistema para responder al cliente. Si hay muchas opciones, muestra las más relevantes.`;
         } else {
-          erpData = '\n\n[NOTA]: No se encontraron productos en el ERP con ese nombre. Informa al cliente que no tenemos ese producto disponible actualmente.';
+          erpData = '\n\n[NOTA]: No se encontraron productos en el ERP. Verifica que el cliente especificó correctamente el producto que busca.';
         }
       }
 
