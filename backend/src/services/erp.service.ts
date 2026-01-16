@@ -148,9 +148,13 @@ class ERPService {
         // Resetear timeout cada vez que llegan datos
         client.setTimeout(60000);
         
-        // Si recibimos XML completo, cerrar la conexión
-        if (responseData.includes('</document>')) {
-          console.log('✓ XML completo recibido, cerrando conexión');
+        // Contar etiquetas de apertura y cierre para detectar XML completo
+        const openTags = (responseData.match(/<document>/g) || []).length;
+        const closeTags = (responseData.match(/<\/document>/g) || []).length;
+        
+        // Si todas las etiquetas están cerradas, tenemos el XML completo
+        if (openTags > 0 && openTags === closeTags) {
+          console.log(`✓ XML completo recibido (${openTags} etiquetas cerradas), cerrando conexión`);
           client.end();
         }
       });
