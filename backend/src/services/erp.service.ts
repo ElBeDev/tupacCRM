@@ -155,7 +155,8 @@ class ERPService {
         // Si todas las etiquetas están cerradas, tenemos el XML completo
         if (openTags > 0 && openTags === closeTags) {
           console.log(`✓ XML completo recibido (${openTags} etiquetas cerradas), cerrando conexión`);
-          client.end();
+          client.destroy(); // Cerrar inmediatamente sin esperar
+          resolve(responseData); // Resolver inmediatamente con los datos
         }
       });
 
