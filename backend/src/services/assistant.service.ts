@@ -348,7 +348,7 @@ export class AssistantService {
       const extractResponse = await openai!.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Extrae los nombres de productos mencionados en el mensaje. Responde SOLO con los nombres separados por comas, o "ninguno" si no hay productos mencionados.' },
+          { role: 'system', content: 'Extrae los nombres o términos de búsqueda de productos mencionados en el mensaje. Incluye términos genéricos como "coca", "pepsi", "cerveza", "agua", etc. Responde SOLO con los términos de búsqueda separados por comas, o "ninguno" si no hay productos mencionados. Ejemplos: "coca" -> "coca", "tienen cerveza?" -> "cerveza", "quiero pepsi" -> "pepsi"' },
           { role: 'user', content: message }
         ],
         temperature: 0.3,
@@ -357,7 +357,7 @@ export class AssistantService {
 
       const productNames = extractResponse.choices[0].message.content?.trim();
       
-      if (!productNames || productNames.toLowerCase() === 'ninguno') {
+      if (!productNames || productNames.toLowerCase() === 'ninguno' || productNames.toLowerCase() === 'ninguno.') {
         console.log('📋 No se detectaron nombres de productos específicos');
         return null;
       }
