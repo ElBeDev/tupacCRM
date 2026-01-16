@@ -465,18 +465,18 @@ EJEMPLOS:
           // Obtener los últimos 5 mensajes de la conversación
           const recentMessages = await prisma.message.findMany({
             where: { conversationId: context.conversationId },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { sentAt: 'desc' },
             take: 5,
             select: {
               content: true,
-              role: true,
+              senderType: true,
             }
           });
           
           // Formatear mensajes (más recientes primero, invertir para tener el orden correcto)
           conversationContext = recentMessages
             .reverse()
-            .map(m => `${m.role === 'user' ? 'Cliente' : 'Asistente'}: ${m.content}`)
+            .map(m => `${m.senderType === 'USER' ? 'Cliente' : 'Asistente'}: ${m.content}`)
             .join('\n');
           
           if (conversationContext) {
