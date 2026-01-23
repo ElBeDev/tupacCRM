@@ -60,6 +60,7 @@ model Conversation {
   assignedToId  String?
   lastMessageAt DateTime           @default(now())
   metadata      Json?
+  threadId      String?            // OpenAI Thread ID for maintaining context
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   assignedTo    User?              @relation("AssignedConversations", fields: [assignedToId], references: [id])

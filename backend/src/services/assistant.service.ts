@@ -283,26 +283,55 @@ export class AssistantService {
       // ========================================
       // 💬 STANDARD MODE: Use Threads API for text
       // ========================================
-      // Create a new thread for this conversation
-      const thread = await openai.beta.threads.create();
+      // Get or create thread for this conversation
+      let threadId: string;
+      
+      if (context?.conversationId) {
+        // Try to get existing thread from conversation
+        const conversation = await prisma.conversation.findUnique({
+          where: { id: context.conversationId },
+          select: { threadId: true }
+        });
+        
+        if (conversation?.threadId) {
+          threadId = conversation.threadId;
+          console.log(`♻️ Reusing existing thread: ${threadId}`);
+        } else {
+          // Create new thread and save it
+          const thread = await openai.beta.threads.create();
+          threadId = thread.id;
+          
+          await prisma.conversation.update({
+            where: { id: context.conversationId },
+            data: { threadId }
+          });
+          
+          console.log(`🆕 Created new thread: ${threadId}`);
+        }
+      } else {
+        // No conversation context, create temporary thread
+        const thread = await openai.beta.threads.create();
+        threadId = thread.id;
+        console.log(`⚡ Created temporary thread: ${threadId}`);
+      }
 
       // Add the user message with enriched context if available
       const finalMessage = enrichedContext 
         ? `${message}${enrichedContext}`
         : message;
 
-      await openai.beta.threads.messages.create(thread.id, {
+      await openai.beta.threads.messages.create(threadId, {
         role: 'user',
         content: finalMessage,
       });
 
       // Run the assistant
-      const run = await openai.beta.threads.runs.create(thread.id, {
+      const run = await openai.beta.threads.runs.create(threadId, {
         assistant_id: assistant.openaiId,
       });
 
       // Wait for completion (with timeout)
-      let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+      let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
       let attempts = 0;
       const maxAttempts = 30; // 30 seconds timeout
 
@@ -312,7 +341,7 @@ export class AssistantService {
           return null;
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
-        runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+        runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
         attempts++;
       }
 
@@ -322,7 +351,7 @@ export class AssistantService {
       }
 
       // Get the assistant's response
-      const messages = await openai.beta.threads.messages.list(thread.id);
+      const messages = await openai.beta.threads.messages.list(threadId);
       const assistantMessage = messages.data.find(m => m.role === 'assistant');
 
       if (assistantMessage && assistantMessage.content[0].type === 'text') {
@@ -348,6 +377,10 @@ export class AssistantService {
       const fullMessage = conversationContext 
         ? `Conversación previa:\n${conversationContext}\n\nÚltimo mensaje: ${message}`
         : message;
+      
+      if (conversationContext) {
+        console.log(`📜 Contexto pasado al extractor:\n${conversationContext}`);
+      }
       
       // Extraer posibles nombres de productos del mensaje usando IA
       const extractResponse = await openai!.chat.completions.create({
