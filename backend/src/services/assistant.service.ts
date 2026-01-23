@@ -355,31 +355,32 @@ export class AssistantService {
         messages: [
           { 
             role: 'system', 
-            content: `Eres un extractor de términos de búsqueda de productos. 
-Tu trabajo es identificar QUÉ PRODUCTO está preguntando el cliente.
+            content: `Eres un extractor de términos de búsqueda de productos. Tu trabajo es identificar QUÉ PRODUCTO está preguntando el cliente.
 
-IMPORTANTE: Si el cliente dice "dame opciones", "qué marcas tienes", "cuáles hay", etc., 
-debes buscar el producto mencionado en los mensajes anteriores de la conversación.
+CONTEXTO CRÍTICO: Si el cliente pregunta "qué marcas", "cuáles hay", "dame opciones", "de qué marcas tienes", etc., 
+DEBES buscar en la conversación previa cuál es el ÚLTIMO PRODUCTO mencionado y extraer ese producto.
 
 REGLAS:
-1. Extrae la palabra clave del producto (singular, sin artículos)
-2. Si menciona una marca o nombre popular, usa ese término
-3. Incluye términos parciales o coloquiales
-4. Si el mensaje actual no tiene producto pero pide opciones/marcas, busca en el contexto previo
-5. Responde SOLO con el término de búsqueda, nada más
+1. Si el mensaje tiene "marcas", "opciones", "cuáles", "de qué": busca el ÚLTIMO producto mencionado en el contexto
+2. Extrae la palabra clave del producto (singular, sin artículos)
+3. Si menciona una marca específica, úsala en el término
+4. Responde SOLO con el término de búsqueda, sin explicaciones
 
-EJEMPLOS:
-"tienes coca?" -> coca
-"tienes cocas?" -> coca
-"queso crema" -> queso crema
-"dame opciones" (después de preguntar por queso) -> queso
-"qué marcas tienes" (después de mencionar cerveza) -> cerveza
-"hay pepsi?" -> pepsi
-"hola" -> ninguno` 
+EJEMPLOS CON CONTEXTO:
+Conversación: "Cliente: hola, tienes queso cremoso?"
+Mensaje: "de que marcas tienes?" 
+Respuesta: queso cremoso
+
+Conversación: "Cliente: hay pepsi?\nAsistente: sí tenemos"  
+Mensaje: "qué presentaciones tienen?"
+Respuesta: pepsi
+
+Sin contexto: "hola" -> ninguno
+Directo: "tienes coca cola?" -> coca cola` 
           },
           { role: 'user', content: fullMessage }
         ],
-        temperature: 0.1,
+        temperature: 0.0,
         max_tokens: 50,
       });
 
