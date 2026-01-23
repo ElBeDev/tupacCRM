@@ -767,12 +767,32 @@ Directo: "tienes coca cola?" -> coca cola`
           });
         }
 
+        // ========================================
+        // 💾 GUARDAR MENSAJE DEL USUARIO EN LA CONVERSACIÓN
+        // ========================================
+        const displayMessage = hasImages ? messageContent.text || 'Imagen enviada' : message;
+        await prisma.message.create({
+          data: {
+            conversationId: testConversation.id,
+            content: displayMessage,
+            senderType: 'CONTACT',
+            messageType: 'TEXT',
+          }
+        });
+        console.log(`[Test] 💾 Saved user message to conversation: ${testConversation.id}`);
+
         // Detectar intención del mensaje con historial de conversación
         console.log('[Test] Detecting intent...');
         const smartTagService = (await import('./smart-tag.service')).default;
         
-        // Obtener historial de conversación para contexto
-        const conversationHistory = testConversation.messages.reverse().map(msg => ({
+        // Obtener historial de conversación actualizado
+        const recentMessages = await prisma.message.findMany({
+          where: { conversationId: testConversation.id },
+          orderBy: { sentAt: 'desc' },
+          take: 10
+        });
+        
+        const conversationHistory = recentMessages.reverse().map(msg => ({
           role: msg.senderType === 'CONTACT' ? 'user' : 'assistant',
           content: msg.content
         }));
@@ -792,7 +812,22 @@ Directo: "tienes coca cola?" -> coca cola`
           }
         );
 
-        // Guardar la respuesta
+        // ========================================
+        // 💾 GUARDAR RESPUESTA EN LA CONVERSACIÓN
+        // ========================================
+        if (response) {
+          await prisma.message.create({
+            data: {
+              conversationId: testConversation.id,
+              content: response,
+              senderType: 'BOT',
+              messageType: 'TEXT',
+            }
+          });
+          console.log(`[Test] 💾 Saved assistant response to conversation`);
+        }
+
+        // Guardar también en AssistantTestMessage para mostrar en la UI de pruebas
         await prisma.assistantTestMessage.create({
           data: { assistantId, role: 'assistant', content: response || 'Sin respuesta' },
         });
