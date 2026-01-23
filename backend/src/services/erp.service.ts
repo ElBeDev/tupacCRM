@@ -479,17 +479,28 @@ class ERPService {
   formatProductInfo(product: ERPArticleResponse): string {
     const lines: string[] = [];
     
-    // Helper para obtener string de cualquier valor
+    // Helper para obtener string de cualquier valor (maneja CDATA y otros formatos)
     const getString = (value: any): string => {
       if (!value) return '';
       if (typeof value === 'string') return value.trim();
-      if (typeof value === 'object' && value['#text']) return String(value['#text']).trim();
+      // Manejar CDATA del parser XML
+      if (typeof value === 'object') {
+        if (value['__cdata']) return String(value['__cdata']).trim();
+        if (value['#text']) return String(value['#text']).trim();
+        if (value['#cdata']) return String(value['#cdata']).trim();
+        // Si es un objeto sin propiedades conocidas, intentar stringify
+        return '';
+      }
       return String(value).trim();
     };
     
     // Nombre del producto
     const nombre = getString(product.nombre);
-    if (nombre) lines.push(`📦 **${nombre}**`);
+    if (nombre) {
+      lines.push(`📦 **${nombre}**`);
+    } else {
+      lines.push(`📦 **Producto ID: ${product.id}**`);
+    }
     
     // ID y SKU
     if (product.id) lines.push(`   ID: ${product.id}`);
