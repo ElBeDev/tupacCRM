@@ -535,12 +535,19 @@ Directo: "tienes coca cola?" -> coca cola`
         }
       }
 
+      // Construir mensaje con contexto de conversación
+      let contextualMessage = message;
+      if (conversationContext) {
+        contextualMessage = `[CONTEXTO DE LA CONVERSACIÓN RECIENTE]:\n${conversationContext}\n\n[MENSAJE ACTUAL DEL CLIENTE]: ${message}`;
+        console.log('📝 Enviando contexto al especialista');
+      }
+
       // Usar Chat Completions para consulta rápida (sin threads)
       const response = await openai.chat.completions.create({
         model: specialist.model || 'gpt-4o-mini',
         messages: [
           { role: 'system', content: specialist.instructions },
-          { role: 'user', content: `El cliente escribió: "${message}"${erpData}\n\nProporciona la información relevante para ayudar a responderle.` }
+          { role: 'user', content: `${contextualMessage}${erpData}\n\nProporciona la información relevante para ayudar a responderle.` }
         ],
         temperature: specialist.temperature || 0.3,
         max_tokens: 800,
