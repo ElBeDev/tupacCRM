@@ -488,37 +488,44 @@ Directo: "tienes coca cola?" -> coca cola`
     }
 
     console.log(`🔗 Consulting specialist: ${specialist.name} (${specialist.specialty}) for intent: ${intent}`);
+    console.log(`📌 Context received: conversationId=${context?.conversationId}, contactId=${context?.contactId}`);
 
     try {
       // ========================================
-      // � OBTENER CONTEXTO DE LA CONVERSACIÓN
+      // 📝 OBTENER CONTEXTO DE LA CONVERSACIÓN
       // ========================================
       let conversationContext = '';
       if (context?.conversationId) {
         try {
-          // Obtener los últimos 5 mensajes de la conversación
+          // Obtener los últimos 10 mensajes de la conversación
           const recentMessages = await prisma.message.findMany({
             where: { conversationId: context.conversationId },
             orderBy: { sentAt: 'desc' },
-            take: 5,
+            take: 10,
             select: {
               content: true,
               senderType: true,
             }
           });
           
+          console.log(`📬 Found ${recentMessages.length} messages in conversation`);
+          
           // Formatear mensajes (más recientes primero, invertir para tener el orden correcto)
           conversationContext = recentMessages
             .reverse()
-            .map(m => `${m.senderType === 'USER' ? 'Cliente' : 'Asistente'}: ${m.content}`)
+            .map(m => `${m.senderType === 'CONTACT' ? 'Cliente' : 'Asistente'}: ${m.content}`)
             .join('\n');
           
           if (conversationContext) {
-            console.log(`📜 Contexto obtenido: ${recentMessages.length} mensajes recientes`);
+            console.log(`📜 Contexto obtenido:\n${conversationContext}`);
+          } else {
+            console.log('⚠️ No hay contexto de conversación');
           }
         } catch (error) {
           console.warn('⚠️ No se pudo obtener contexto de conversación:', error);
         }
+      } else {
+        console.log('⚠️ No conversationId provided');
       }
       
       // ========================================
