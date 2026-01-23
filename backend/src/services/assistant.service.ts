@@ -832,7 +832,7 @@ Directo: "tienes coca cola?" -> coca cola`
             data: {
               conversationId: testConversation.id,
               content: response,
-              senderType: 'BOT',
+              senderType: 'AI',
               messageType: 'TEXT',
             }
           });

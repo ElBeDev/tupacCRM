@@ -435,8 +435,34 @@ class ERPService {
         return parsedData;
       }
 
-      // Si es un solo producto, retornarlo como array
+      // Si el ERP devuelve los datos con arrays en cada campo (múltiples productos),
+      // necesitamos transformarlos en un array de objetos individuales
+      if (parsedData.id && Array.isArray(parsedData.id)) {
+        const products: ERPArticleResponse[] = [];
+        const numProducts = parsedData.id.length;
+        
+        for (let i = 0; i < numProducts; i++) {
+          const product: any = {};
+          
+          // Copiar cada campo del índice correspondiente
+          for (const key of Object.keys(parsedData)) {
+            if (Array.isArray(parsedData[key])) {
+              product[key] = parsedData[key][i];
+            } else {
+              product[key] = parsedData[key];
+            }
+          }
+          
+          products.push(product as ERPArticleResponse);
+        }
+        
+        console.log(`✅ Encontrados ${products.length} productos en el ERP`);
+        return products;
+      }
+
+      // Si es un solo producto (sin arrays), retornarlo como array
       if (parsedData.id || parsedData.nombre) {
+        console.log(`✅ Encontrados 1 productos en el ERP`);
         return [parsedData as ERPArticleResponse];
       }
 
