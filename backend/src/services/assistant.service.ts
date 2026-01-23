@@ -439,8 +439,20 @@ Directo: "tienes coca cola?" -> coca cola`
 
       console.log(`✅ Encontrados ${products.length} productos en el ERP`);
       
+      // Log del primer producto para debug
+      if (products[0]) {
+        console.log(`📦 Primer producto encontrado:`, JSON.stringify({
+          nombre: products[0].nombre,
+          stock: products[0].stock,
+          precio_normal: products[0].precio_normal,
+          marca: products[0].marca
+        }, null, 2));
+      }
+      
       // Formatear la información de los productos
       const formattedProducts = products.slice(0, 5).map((p) => erpService.formatProductInfo(p)).join('\n\n---\n\n');
+      
+      console.log(`📋 Info formateada para especialista:\n${formattedProducts.substring(0, 500)}...`);
       
       return formattedProducts;
     } catch (error) {
