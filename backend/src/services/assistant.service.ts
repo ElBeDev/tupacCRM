@@ -388,28 +388,31 @@ export class AssistantService {
         messages: [
           { 
             role: 'system', 
-            content: `Eres un extractor de términos de búsqueda de productos. Tu trabajo es identificar QUÉ PRODUCTO está preguntando el cliente.
+            content: `Eres un extractor de términos de búsqueda de productos para un sistema ERP. Tu trabajo es identificar QUÉ PRODUCTO está preguntando el cliente.
 
-CONTEXTO CRÍTICO: Si el cliente pregunta "qué marcas", "cuáles hay", "dame opciones", "de qué marcas tienes", etc., 
-DEBES buscar en la conversación previa cuál es el ÚLTIMO PRODUCTO mencionado y extraer ese producto.
+REGLAS CRÍTICAS:
+1. El ERP NO acepta búsquedas con múltiples palabras separadas
+2. Extrae SOLO la palabra clave más importante del producto
+3. Si menciona una marca específica, usa la marca
+4. Si menciona "bebidas en lata", "gaseosas", etc., responde solo "lata" o "coca" (lo más común)
+5. Si el cliente pregunta "qué marcas", "cuáles hay", etc., busca el ÚLTIMO producto en el contexto
 
-REGLAS:
-1. Si el mensaje tiene "marcas", "opciones", "cuáles", "de qué": busca el ÚLTIMO producto mencionado en el contexto
-2. Extrae la palabra clave del producto (singular, sin artículos)
-3. Si menciona una marca específica, úsala en el término
-4. Responde SOLO con el término de búsqueda, sin explicaciones
+PRIORIDAD DE EXTRACCIÓN:
+- Marca específica (ej: "coca cola" -> "coca")
+- Tipo de producto con presentación (ej: "bebidas en lata" -> "lata")
+- Tipo de producto (ej: "queso cremoso" -> "cremoso")
 
-EJEMPLOS CON CONTEXTO:
-Conversación: "Cliente: hola, tienes queso cremoso?"
-Mensaje: "de que marcas tienes?" 
-Respuesta: queso cremoso
+CONTEXTO: Si el mensaje tiene "marcas", "opciones", "cuáles", etc., busca el ÚLTIMO producto mencionado
 
-Conversación: "Cliente: hay pepsi?\nAsistente: sí tenemos"  
-Mensaje: "qué presentaciones tienen?"
-Respuesta: pepsi
+RESPONDE SOLO CON UNA O DOS PALABRAS CLAVE, SIN EXPLICACIONES
 
-Sin contexto: "hola" -> ninguno
-Directo: "tienes coca cola?" -> coca cola` 
+EJEMPLOS:
+"tienes coca cola?" -> coca
+"bebidas en lata" -> lata
+"queso cremoso" -> cremoso
+"cremoso punta de agua" -> cremoso
+"gaseosas" -> coca
+"qué marcas de queso crema tienes?" -> queso crema` 
           },
           { role: 'user', content: fullMessage }
         ],
@@ -436,16 +439,46 @@ Directo: "tienes coca cola?" -> coca cola`
       if (products.length === 0) {
         console.log('❌ No se encontraron productos con búsqueda exacta, intentando alternativas...');
         
-        // Intentar con palabras clave del término de búsqueda
-        const palabrasClave = searchTerm.split(' ')
-          .filter(p => p.length > 3 && !['para', 'con', 'sin', 'tipo'].includes(p.toLowerCase()));
+        // Estrategia de búsqueda alternativa
+        // 1. Si tiene múltiples palabras, probar combinaciones
+        const palabras = searchTerm.split(' ').filter(p => p.length > 2);
         
-        for (const palabra of palabrasClave) {
-          console.log(`🔍 Buscando con palabra clave: "${palabra}"`);
-          products = await erpService.searchProductsByName(palabra);
-          if (products.length > 0) {
-            console.log(`✅ Encontrados ${products.length} productos con "${palabra}"`);
-            break;
+        if (palabras.length > 1) {
+          // Probar palabras individuales, priorizando las más largas (más específicas)
+          const palabrasOrdenadas = [...palabras].sort((a, b) => b.length - a.length);
+          
+          for (const palabra of palabrasOrdenadas) {
+            if (['para', 'con', 'sin', 'tipo', 'bebida', 'producto', 'tiene'].includes(palabra.toLowerCase())) {
+              continue; // Skip palabras muy genéricas
+            }
+            
+            console.log(`🔍 Buscando con palabra clave: "${palabra}"`);
+            products = await erpService.searchProductsByName(palabra);
+            
+            if (products.length > 0) {
+              console.log(`✅ Encontrados ${products.length} productos con "${palabra}"`);
+              break;
+            }
+          }
+        }
+        
+        // Si aún no hay resultados, intentar con términos muy comunes que el cliente puede usar
+        if (products.length === 0) {
+          const terminosComunes: Record<string, string> = {
+            'gaseosa': 'coca',
+            'refresco': 'coca',
+            'soda': 'coca',
+          };
+          
+          for (const [clave, valor] of Object.entries(terminosComunes)) {
+            if (searchTerm.toLowerCase().includes(clave)) {
+              console.log(`🔍 Buscando término similar: "${valor}"`);
+              products = await erpService.searchProductsByName(valor);
+              if (products.length > 0) {
+                console.log(`✅ Encontrados ${products.length} productos con "${valor}"`);
+                break;
+              }
+            }
           }
         }
         
