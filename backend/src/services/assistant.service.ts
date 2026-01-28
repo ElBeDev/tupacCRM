@@ -430,14 +430,33 @@ Directo: "tienes coca cola?" -> coca cola`
       
       // Buscar en el ERP (usar el primer término de búsqueda)
       const searchTerm = productNames.split(',')[0].trim();
-      const products = await erpService.searchProductsByName(searchTerm);
+      let products = await erpService.searchProductsByName(searchTerm);
       
+      // Si no se encontró nada, intentar búsquedas alternativas más amplias
       if (products.length === 0) {
-        console.log('❌ No se encontraron productos en el ERP');
-        return null;
+        console.log('❌ No se encontraron productos con búsqueda exacta, intentando alternativas...');
+        
+        // Intentar con palabras clave del término de búsqueda
+        const palabrasClave = searchTerm.split(' ')
+          .filter(p => p.length > 3 && !['para', 'con', 'sin', 'tipo'].includes(p.toLowerCase()));
+        
+        for (const palabra of palabrasClave) {
+          console.log(`🔍 Buscando con palabra clave: "${palabra}"`);
+          products = await erpService.searchProductsByName(palabra);
+          if (products.length > 0) {
+            console.log(`✅ Encontrados ${products.length} productos con "${palabra}"`);
+            break;
+          }
+        }
+        
+        // Si aún no hay resultados, retornar null
+        if (products.length === 0) {
+          console.log('❌ No se encontraron productos alternativos en el ERP');
+          return null;
+        }
+      } else {
+        console.log(`✅ Encontrados ${products.length} productos en el ERP`);
       }
-
-      console.log(`✅ Encontrados ${products.length} productos en el ERP`);
       
       // Log del primer producto para debug
       if (products[0]) {
