@@ -512,7 +512,27 @@ class ERPService {
     if (depto) lines.push(`   Departamento: ${depto}`);
     const familia = getString(product.familia);
     if (familia) lines.push(`   Familia: ${familia}`);
-    const marca = getString(product.marca);
+    
+    // Marca: si está vacía, intentar extraerla del nombre del producto
+    let marca = getString(product.marca);
+    if (!marca && nombre) {
+      // Buscar la primera palabra que parezca ser una marca (palabras capitalizadas que no sean genéricas)
+      const palabrasGenericas = ['QUESO', 'CREMA', 'LECHE', 'YOGUR', 'MANTECA', 'BEBIDA', 'GASEOSA', 'AGUA', 'JUGO', 'LA', 'EL', 'LAS', 'LOS'];
+      const palabras = nombre.split(' ');
+      
+      for (const palabra of palabras) {
+        const palabraLimpia = palabra.trim().toUpperCase();
+        if (palabraLimpia.length > 2 && !palabrasGenericas.includes(palabraLimpia) && /^[A-Z]/.test(palabra)) {
+          marca = palabra;
+          break;
+        }
+      }
+      
+      // Si no encontramos marca, usar primera palabra
+      if (!marca) {
+        marca = palabras[0];
+      }
+    }
     if (marca) lines.push(`   Marca: ${marca}`);
     
     // Precios (convertir formato: "2795,8680" -> "$2,795.87")
